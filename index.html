@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Containment Break-Even</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: live call-flow diagram across the top, then supplied/calculated values on the left and results on the right; stacks results-first on phones. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #15212b;
+  --muted: #5b6b78;
+  --line: #d9e0e6;
+  --accent: #0f6e78;        /* AVA / savings */
+  --agent: #7a8c9b;         /* agent labor */
+  --ava: #3fa3ad;           /* AVA usage */
+  --fixed: #c9a227;         /* AVA platform */
+  --ivr: #b9c4cd;           /* IVR */
+  --baseline: #b8402f;      /* cost without AVA */
+  --good: #1f7a4a;
+  --bad: #b8402f;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f161c; --surface: #172129; --ink: #e6edf2; --muted: #93a3b0; --line: #2a3843;
+    --accent: #5cc4cd; --agent: #5e7181; --ava: #2f8d97; --fixed: #c6a43a; --ivr: #3b4a56;
+    --baseline: #ec7a66; --good: #5ccf8e; --bad: #ec7a66; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f161c; --surface: #172129; --ink: #e6edf2; --muted: #93a3b0; --line: #2a3843;
+  --accent: #5cc4cd; --agent: #5e7181; --ava: #2f8d97; --fixed: #c6a43a; --ivr: #3b4a56;
+  --baseline: #ec7a66; --good: #5ccf8e; --bad: #ec7a66; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { color-scheme: light; }
+body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+header h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 3.4vw, 36px); line-height: 1.1; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+header p { margin: 6px 0 0; color: var(--muted); max-width: 72ch; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+.card-head h2 { font-family: var(--f-display); font-weight: 500; font-size: 19px; margin: 0; }
+.hint { font-size: 12px; color: var(--muted); }
+
+/* Flow diagram */
+.flow-card { padding: 16px 18px 10px; }
+.flow-scroll { overflow-x: auto; }
+#flow { display: block; width: 100%; min-width: 640px; height: auto; }
+#flow text { font-family: var(--f-body); fill: var(--ink); }
+#flow .num { font-family: var(--f-mono); font-size: 13px; fill: var(--muted); }
+#flow .pctl { font-family: var(--f-mono); font-size: 17px; font-weight: 500; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.inputs { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); padding: 18px; display: flex; flex-direction: column; gap: 20px; max-height: calc(100vh - 24px); overflow-y: auto; }
+.results { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
+legend { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 8px; }
+.field { display: grid; grid-template-columns: 1fr 118px; gap: 10px; align-items: center; }
+.field label { font-size: 13.5px; }
+.field small { display: block; color: var(--muted); font-size: 12px; line-height: 1.35; }
+input[type="number"] {
+  width: 100%; font: 500 13px/1 var(--f-mono); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 6px; font-variant-numeric: tabular-nums;
+}
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+input:disabled { opacity: 0.45; }
+.prefix, .suffix { position: relative; }
+.prefix span, .suffix span { position: absolute; top: 50%; transform: translateY(-50%); font: 13px var(--f-mono); color: var(--muted); pointer-events: none; }
+.prefix span { left: 8px; } .prefix input { padding-left: 20px; }
+.suffix span { right: 8px; } .suffix input { padding-right: 34px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; padding: 7px 8px; font-size: 12.5px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.check input { accent-color: var(--accent); margin-top: 3px; width: 15px; height: 15px; }
+.check small { display: block; color: var(--muted); font-size: 12px; }
+.calc { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 13.5px; background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.calc dt { color: var(--muted); }
+.calc dd { margin: 0; font: 500 13px var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.warn { font-size: 12.5px; color: var(--bad); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font: 500 13px var(--f-body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+
+/* Verdict */
+.verdict { padding: 22px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 22px; }
+.be-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.be-num { font-family: var(--f-display); font-weight: 700; font-size: clamp(54px, 8vw, 84px); line-height: 1; color: var(--accent); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.be-num.na { color: var(--bad); font-size: clamp(30px, 4vw, 40px); }
+.be-sub { color: var(--muted); margin-top: 8px; font-size: 14px; max-width: 46ch; }
+.be-sub b { color: var(--ink); font-weight: 600; }
+.target { display: flex; flex-direction: column; gap: 10px; border-left: 1px solid var(--line); padding-left: 22px; }
+.target-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.target-val { font: 500 22px var(--f-mono); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font: 500 17px var(--f-mono); font-variant-numeric: tabular-nums; }
+.pos { color: var(--good); }
+.neg { color: var(--bad); }
+
+.chart-card { padding: 18px 18px 12px; }
+.chain-card { padding: 18px; }
+.chain { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.chain .link { min-width: 0; background: var(--bg); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.chain .link.end { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
+.chain .k { font-size: 12px; color: var(--muted); }
+.chain .v { font: 500 18px var(--f-mono); font-variant-numeric: tabular-nums; }
+.chain .n { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.chain .arrow { display: none; }
+.chain .link:not(.end) .k::after { content: " \2192"; }
+@media (max-width: 760px) { .chain { grid-template-columns: repeat(2, minmax(0, 1fr)); } .chain .link.end { grid-column: 1 / -1; } }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.legend i.line { height: 0; border-top: 2px dashed var(--baseline); border-radius: 0; width: 14px; vertical-align: 3px; }
+#chart { width: 100%; height: auto; display: block; touch-action: none; cursor: crosshair; user-select: none; }
+#chart text { font-family: var(--f-mono); font-size: 11px; fill: var(--muted); }
+
+.table-card { padding: 18px; }
+.table-scroll { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 600px; }
+table.data th, table.data td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+table.data th { font-weight: 500; color: var(--muted); font-size: 12px; }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data td { font-family: var(--f-mono); font-size: 13px; }
+table.data td.lbl { font-family: var(--f-body); font-size: 13.5px; }
+table.data tr.be td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+table.data tr.tg td { font-weight: 600; box-shadow: inset 0 -2px 0 var(--ink); }
+table.data tfoot td { font-weight: 600; border-bottom: 0; border-top: 2px solid var(--line); }
+.tag { font-family: var(--f-body); font-size: 11px; font-weight: 600; margin-left: 6px; color: var(--accent); }
+
+details { padding: 14px 18px; }
+summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+details p, details li { color: var(--muted); font-size: 13.5px; max-width: 78ch; }
+.math { display: flex; flex-direction: column; gap: 8px; padding-left: 20px; }
+.math li { font-size: 13.5px; color: var(--muted); }
+.math b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
+details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink); background: var(--bg); padding: 1px 5px; border-radius: 4px; }
+
+@media (max-width: 920px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  .results { order: -1; }
+  .inputs { position: static; max-height: none; overflow: visible; }
+}
+@media (max-width: 620px) {
+  .verdict { grid-template-columns: minmax(0, 1fr); }
+  .target { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; }
+  .field { grid-template-columns: 1fr 108px; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AVA containment break-even</h1>
+    <p>Inbound calls take one of four paths: direct to an agent, contained in the IVR, contained in AVA, or IVR to AVA to an agent. This finds the share of calls AVA must contain before agent savings cover what AVA costs, and shows savings as containment grows. Values are examples until you replace them.</p>
+  </header>
+
+  <section class="panel flow-card">
+    <div class="card-head"><h2>Call flow at target containment</h2><span class="hint" id="flowBasis"></span></div>
+    <div class="flow-scroll"><svg id="flow" viewBox="0 0 1000 250" role="img" aria-label="Call flow diagram"></svg></div>
+  </section>
+
+  <div class="grid">
+    <form class="panel inputs" id="inputs" autocomplete="off">
+      <fieldset>
+        <legend>Call volume</legend>
+        <div class="seg" role="group" aria-label="How call volume is set">
+          <button type="button" id="modeCalls" aria-pressed="true">Enter calls per month</button>
+          <button type="button" id="modeAgents" aria-pressed="false">From agent headcount</button>
+        </div>
+        <div class="field" id="rowCalls">
+          <label for="calls">Inbound calls per month<small>All calls entering the flow.</small></label>
+          <input type="number" id="calls" min="0" step="1000">
+        </div>
+        <div class="field" id="rowAgents">
+          <label for="agents">Agent FTEs today<small>FTEs needed without AVA. Calculated from calls, or switch above to enter headcount.</small></label>
+          <input type="number" id="agents" min="0" step="1">
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Agent values</legend>
+        <div class="field">
+          <label for="cost">Fully loaded agent cost<small>Per agent, per month.</small></label>
+          <div class="prefix"><span>$</span><input type="number" id="cost" min="0" step="100"></div>
+        </div>
+        <div class="field">
+          <label for="occ">Agent occupancy rate<small>Share of logged-in time spent on calls.</small></label>
+          <div class="suffix"><span>%</span><input type="number" id="occ" min="1" max="100" step="1"></div>
+        </div>
+        <div class="field">
+          <label for="aht">Average call time<small>Agent handle time per call.</small></label>
+          <div class="suffix"><span>sec</span><input type="number" id="aht" min="1" step="10"></div>
+        </div>
+        <div class="field">
+          <label for="hours">Paid hours per agent per month<small>One full-time equivalent (FTE). 2,080 hr ÷ 12 ≈ 173.</small></label>
+          <div class="suffix"><span>hr</span><input type="number" id="hours" min="1" step="1"></div>
+        </div>
+        <div class="field">
+          <label for="share">% of agent time on these calls<small>Paid time logged in to this queue. The rest is breaks, training, meetings, other work.</small></label>
+          <div class="suffix"><span>%</span><input type="number" id="share" min="1" max="100" step="1"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="whole"><span>Round FTEs up to whole people<small>Off: fractional FTEs. On: savings arrive one person at a time.</small></span></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Call paths (% of all calls)</legend>
+        <div class="field">
+          <label for="direct">Go directly to an agent</label>
+          <div class="suffix"><span>%</span><input type="number" id="direct" min="0" max="100" step="1"></div>
+        </div>
+        <div class="field">
+          <label for="ivr">Contained in IVR</label>
+          <div class="suffix"><span>%</span><input type="number" id="ivr" min="0" max="100" step="1"></div>
+        </div>
+        <div class="hint">Calls left after these two move from the IVR to AVA. The target slider sets how many of them AVA contains; the rest go on to an agent.</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Automation costs</legend>
+        <div class="field">
+          <label for="ivrCost">IVR cost per call</label>
+          <div class="prefix"><span>$</span><input type="number" id="ivrCost" min="0" step="0.05"></div>
+        </div>
+        <div class="field">
+          <label for="avaCost">AVA cost per call</label>
+          <div class="prefix"><span>$</span><input type="number" id="avaCost" min="0" step="0.05"></div>
+        </div>
+        <label class="check"><input type="checkbox" id="chargeEsc"><span>Charge AVA on escalated calls too<small>Calls that go IVR → AVA → Agent still use an AVA session.</small></span></label>
+        <div class="field">
+          <label for="platform">AVA platform fee<small>Optional fixed fee per month.</small></label>
+          <div class="prefix"><span>$</span><input type="number" id="platform" min="0" step="1000"></div>
+        </div>
+        <div class="field">
+          <label for="impl">AVA implementation<small>Optional one-time cost.</small></label>
+          <div class="prefix"><span>$</span><input type="number" id="impl" min="0" step="1000"></div>
+        </div>
+        <div class="field">
+          <label for="months">Spread implementation over</label>
+          <div class="suffix"><span>mo</span><input type="number" id="months" min="1" step="1"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Calculated values</legend>
+        <dl class="calc" id="calc"></dl>
+        <div class="warn" id="warn" hidden></div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="button" id="reset">Reset to example values</button>
+        <button type="button" id="copy">Copy summary</button>
+      </div>
+    </form>
+
+    <div class="results">
+      <section class="panel verdict" aria-live="polite">
+        <div>
+          <div class="be-label">Break-even AVA containment</div>
+          <div class="be-num" id="beNum">–</div>
+          <div class="be-sub" id="beSub"></div>
+        </div>
+        <div class="target">
+          <div class="target-head">
+            <label class="be-label" for="target">Target AVA containment</label>
+            <span class="target-val" id="targetVal">–</span>
+          </div>
+          <input type="range" id="target" min="0" max="70" step="0.5">
+          <div class="hint" id="targetSub"></div>
+          <div class="stats">
+            <div class="stat"><div class="k">Monthly savings</div><div class="v" id="sMonth">–</div></div>
+            <div class="stat"><div class="k">Annual savings</div><div class="v" id="sYear">–</div></div>
+            <div class="stat"><div class="k">FTEs saved</div><div class="v" id="sAgents">–</div></div>
+            <div class="stat"><div class="k">Implementation payback</div><div class="v" id="sPay">–</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel chain-card">
+        <div class="card-head"><h2>From hours automated to savings</h2><span class="hint">Monthly, at target</span></div>
+        <div class="chain" id="chain"></div>
+      </section>
+
+      <section class="panel chart-card">
+        <div class="card-head">
+          <h2>Monthly cost by AVA containment</h2>
+          <div class="legend">
+            <span><i class="line"></i>Without AVA</span>
+            <span><i style="background:var(--agent)"></i>Agents</span>
+            <span><i style="background:var(--ava)"></i>AVA per call</span>
+            <span><i style="background:var(--fixed)"></i>AVA fixed</span>
+            <span><i style="background:var(--ivr)"></i>IVR</span>
+          </div>
+        </div>
+        <svg id="chart" viewBox="0 0 760 380" role="img" aria-label="Monthly cost versus AVA containment"></svg>
+        <div class="hint">Click or drag on the chart to set the target. The x-axis runs to the share of calls that reach AVA.</div>
+      </section>
+
+      <section class="panel table-card">
+        <div class="card-head"><h2>Savings as containment grows</h2><span class="hint">Monthly figures unless marked</span></div>
+        <div class="table-scroll">
+          <table class="data">
+            <thead><tr><th>AVA contained<br>(% of all calls)</th><th>% of AVA calls</th><th>Agent hours automated</th><th>FTEs saved</th><th>FTEs needed</th><th>Monthly cost</th><th>Monthly savings</th><th>Annual savings</th></tr></thead>
+            <tbody id="ladder"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel table-card">
+        <div class="card-head"><h2>Cost detail at target</h2></div>
+        <div class="table-scroll">
+          <table class="data">
+            <thead><tr><th>Monthly</th><th>Without AVA</th><th>At target</th><th>Change</th></tr></thead>
+            <tbody id="detail"></tbody>
+            <tfoot id="detailFoot"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <details class="panel" id="mathPanel">
+        <summary>Show the math at target</summary>
+        <p>Every step below uses your current inputs. A spreadsheet that recomputes everything is <a href="ava-break-even-check.xlsx">here</a>, so you can redo each line on a calculator or in a spreadsheet.</p>
+        <ol class="math" id="math"></ol>
+      </details>
+
+      <details class="panel">
+        <summary>How it is calculated</summary>
+        <ul>
+          <li>Handle hours per FTE per month = <code>paid hours × % of time on these calls × occupancy</code>. This is the time one FTE actually spends talking to callers.</li>
+          <li>Agent hours automated = <code>calls contained in AVA × average call time ÷ 3600</code></li>
+          <li>FTEs saved = <code>agent hours automated ÷ handle hours per FTE</code></li>
+          <li>Labor saved = <code>FTEs saved × fully loaded agent cost</code></li>
+          <li>Net savings = <code>labor saved − AVA per-call cost − AVA platform fee − implementation ÷ months</code></li>
+          <li>FTEs needed for non-automated calls = <code>(direct % + IVR → AVA → Agent %) × calls × call time ÷ 3600 ÷ handle hours per FTE</code>, rounded up when rounding to whole people.</li>
+          <li>From headcount: inbound calls = <code>FTEs today × handle hours per FTE × 3600 ÷ call time ÷ (direct % + % reaching AVA)</code></li>
+          <li>Agent calls per hour = <code>3600 ÷ call time × occupancy</code>; agent cost per call = <code>agent cost ÷ (handle hours per FTE × 3600 ÷ call time)</code></li>
+        </ul>
+        <p>The comparison point is the same flow without AVA, where every call that leaves the IVR goes to an agent. Break-even is the lowest AVA containment where monthly cost is at or below that figure. IVR cost is the same on both sides, so it never moves the break-even.</p>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const DEFAULTS = {
+    mode: "calls", agents: 100, calls: 96000,
+    cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: false,
+    direct: 10, ivr: 20,
+    ivrCost: 0.5, avaCost: 1.5, chargeEsc: true, platform: 0, impl: 0, months: 36,
+    target: 50
+  };
+  const KEY = "ava-containment-break-even-v3";
+  const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months"];
+  const CHECKS = ["whole", "chargeEsc"];
+  let S = load();
+
+  function load() {
+    try { const o = JSON.parse(localStorage.getItem(KEY)); if (o && typeof o === "object") return Object.assign({}, DEFAULTS, o); } catch (e) {}
+    return Object.assign({}, DEFAULTS);
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+
+  const $ = id => document.getElementById(id);
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+  const money = (v, compact) => {
+    const sign = v < 0 ? "−" : "";
+    const a = Math.abs(v);
+    if (compact) {
+      if (a >= 1e6) return sign + "$" + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + "M";
+      if (a >= 1e4) return sign + "$" + Math.round(a / 1e3) + "K";
+      if (a >= 1e3) return sign + "$" + (a / 1e3).toFixed(1) + "K";
+      return sign + "$" + Math.round(a);
+    }
+    return sign + "$" + Math.round(a).toLocaleString("en-US");
+  };
+  const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const count = v => Math.round(v).toLocaleString("en-US");
+  const agentsFmt = v => S.whole ? count(v) : v.toFixed(1);
+
+  function fillForm() {
+    FIELDS.forEach(id => $(id).value = S[id]);
+    CHECKS.forEach(id => $(id).checked = S[id]);
+    setMode(S.mode, true);
+  }
+  function readForm() {
+    FIELDS.forEach(id => S[id] = Math.max(0, num($(id).value)));
+    CHECKS.forEach(id => S[id] = $(id).checked);
+    S.occ = Math.min(100, Math.max(1, S.occ)); S.share = Math.min(100, Math.max(1, S.share));
+    S.aht = Math.max(1, S.aht); S.hours = Math.max(1, S.hours); S.months = Math.max(1, S.months);
+    S.direct = Math.min(100, S.direct); S.ivr = Math.min(100 - S.direct, S.ivr);
+  }
+  function setMode(mode, quiet) {
+    S.mode = mode;
+    $("modeAgents").setAttribute("aria-pressed", mode === "agents");
+    $("modeCalls").setAttribute("aria-pressed", mode === "calls");
+    $("agents").disabled = mode !== "agents";
+    $("calls").disabled = mode !== "calls";
+    if (!quiet) { render(); save(); }
+  }
+
+  // Core model (monthly)
+  function model() {
+    const d = S.direct / 100, i = S.ivr / 100;
+    const r = Math.max(0, 1 - d - i);                 // share reaching AVA
+    const perHour = 3600 / S.aht * (S.occ / 100);       // agent calls per hour
+    const fteHandle = S.hours * (S.share / 100) * (S.occ / 100); // handle hours per FTE per month
+    const perAgent = fteHandle * 3600 / S.aht;          // calls per FTE per month
+    const hrsPerCall = S.aht / 3600;
+    const costPerCall = perAgent > 0 ? S.cost / perAgent : 0;
+    let N;
+    if (S.mode === "agents") N = (d + r) > 0 ? S.agents * perAgent / (d + r) : 0;
+    else N = S.calls;
+    const fixed = S.platform + S.impl / S.months;
+    const need = calls => { const a = perAgent > 0 ? calls / perAgent : 0; return S.whole ? Math.ceil(a - 1e-9) : a; };
+    const ivrSpend = N * (1 - d) * S.ivrCost;
+
+    const baseAgents = need((d + r) * N);
+    const base = { agents: baseAgents, agentCost: baseAgents * S.cost, ivr: ivrSpend, ava: 0, fixed: 0 };
+    base.total = base.agentCost + base.ivr;
+
+    const at = c => {
+      c = Math.min(Math.max(0, c), r);
+      const esc = r - c;
+      const agents = need((d + esc) * N);
+      const agentCost = agents * S.cost;
+      const ava = N * (S.chargeEsc ? r : c) * S.avaCost;
+      const hoursAuto = c * N * hrsPerCall;
+      const handleHours = (d + esc) * N * hrsPerCall;
+      return { c, esc, agents, agentCost, ivr: ivrSpend, ava, fixed, hoursAuto, handleHours, fteSaved: baseAgents - agents, total: agentCost + ivrSpend + ava + fixed };
+    };
+
+    // Break-even: lowest c with total <= baseline (scan, then refine)
+    let be = null;
+    if (N > 0 && r > 0) {
+      const steps = 4000;
+      for (let k = 0; k <= steps; k++) {
+        const c = r * k / steps;
+        if (at(c).total <= base.total + 0.005) {
+          if (k === 0) { be = 0; break; }
+          let lo = r * (k - 1) / steps, hi = c;
+          for (let j = 0; j < 40; j++) { const mid = (lo + hi) / 2; if (at(mid).total <= base.total + 0.005) hi = mid; else lo = mid; }
+          be = hi; break;
+        }
+      }
+    }
+    let reason = "";
+    if (be === null) {
+      if (N <= 0) reason = "Enter a call volume or agent headcount above zero.";
+      else if (r <= 0) reason = "No calls reach AVA. Lower the direct-to-agent or IVR containment share.";
+      else reason = "AVA costs more than the agent time it saves, even if it contained every call that reaches it.";
+    }
+    base.handleHours = (d + r) * N * hrsPerCall;
+    return { d, i, r, perHour, fteHandle, perAgent, costPerCall, N, fixed, base, at, be, reason };
+  }
+
+  // Flow diagram
+  const NS = "http://www.w3.org/2000/svg";
+  function el(svg, tag, attrs, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e); return e;
+  }
+  function drawFlow(m, t) {
+    const svg = $("flow"); svg.innerHTML = "";
+    const defs = el(svg, "defs", {});
+    const mk = document.createElementNS(NS, "marker");
+    [["id", "arr"], ["viewBox", "0 0 10 10"], ["refX", "9"], ["refY", "5"], ["markerWidth", "7"], ["markerHeight", "7"], ["orient", "auto-start-reverse"]].forEach(([k, v]) => mk.setAttribute(k, v));
+    const mp = document.createElementNS(NS, "path"); mp.setAttribute("d", "M0,0L10,5L0,10Z"); mp.setAttribute("fill", "var(--muted)"); mk.appendChild(mp); defs.appendChild(mk);
+    const line = (x1, y1, x2, y2, w) => el(svg, "line", { x1, y1, x2, y2, stroke: "var(--muted)", "stroke-width": w || 1.6, "marker-end": "url(#arr)" });
+    const box = (x, y, label, color) => {
+      el(svg, "rect", { x, y, width: 150, height: 56, rx: 6, fill: "var(--surface)", stroke: color, "stroke-width": 2.5 });
+      el(svg, "text", { x: x + 75, y: y + 36, "text-anchor": "middle", "font-size": 22, "font-weight": 600, style: "font-family:var(--f-display)" }, label);
+    };
+    const tag = (x, y, p, calls, anchor, color) => {
+      el(svg, "text", { x, y, "text-anchor": anchor || "start", class: "pctl", style: color ? "fill:" + color : "" }, pct(p, p * 100 % 1 ? 1 : 0));
+      el(svg, "text", { x, y: y + 18, "text-anchor": anchor || "start", class: "num" }, count(calls) + "/mo");
+    };
+    const N = m.N;
+    // inbound
+    el(svg, "text", { x: 10, y: 98, "font-size": 15, "font-weight": 600 }, "Inbound");
+    el(svg, "text", { x: 10, y: 116, class: "num" }, count(N) + "/mo");
+    line(10, 128, 236, 128);
+    line(150, 128, 150, 30, 1.6); svg.lastChild.removeAttribute("marker-end");
+    line(150, 30, 860, 30, 1.6); svg.lastChild.removeAttribute("marker-end");
+    line(860, 30, 860, 98);
+    tag(505, 22, m.d, m.d * N, "middle"); svg.lastChild.setAttribute("y", 50);
+    el(svg, "text", { x: 870, y: 66, "font-size": 13, style: "fill:var(--muted)" }, "Direct to agent");
+    box(240, 100, "IVR", "var(--ivr)");
+    line(392, 128, 506, 128);
+    tag(449, 118, m.r, m.r * N, "middle"); svg.lastChild.setAttribute("y", 150); svg.lastChild.previousSibling.setAttribute("y", 120);
+    box(510, 100, "AVA", "var(--ava)");
+    line(662, 128, 781, 128);
+    box(785, 100, "Agent", "var(--agent)");
+    // ends
+    line(315, 158, 315, 238); tag(325, 200, m.i, m.i * N);
+    line(585, 158, 585, 238); tag(595, 200, t.c, t.c * N, "start", "var(--accent)");
+    el(svg, "text", { x: 595, y: 238, "font-size": 12, style: "fill:var(--accent)" }, "contained in AVA");
+    tag(705, 118, t.esc, t.esc * N, "middle"); svg.lastChild.setAttribute("y", 150); svg.lastChild.previousSibling.setAttribute("y", 120);
+    line(860, 158, 860, 238);
+    tag(870, 200, m.d + t.esc, (m.d + t.esc) * N);
+    el(svg, "text", { x: 870, y: 238, "font-size": 12, style: "fill:var(--muted)" }, agentsFmt(t.agents) + " FTEs");
+    $("flowBasis").textContent = "Percentages are shares of all inbound calls";
+  }
+
+  // Chart
+  const chart = $("chart");
+  const W = 760, H = 380, M = { l: 62, r: 16, t: 18, b: 40 };
+  const pw = W - M.l - M.r, ph = H - M.t - M.b;
+  function niceMax(v) {
+    if (v <= 0) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    for (const s of [1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (s * p >= v) return s * p;
+    return 10 * p;
+  }
+  let geom = { r: 0.7 };
+  function drawChart(m) {
+    chart.innerHTML = "";
+    const r = m.r || 0.0001;
+    geom.r = r;
+    const pts = []; let maxY = m.base.total;
+    const n = 300;
+    for (let k = 0; k <= n; k++) { const p = m.at(r * k / n); pts.push(p); maxY = Math.max(maxY, p.total); }
+    const yMax = niceMax(maxY * 1.06);
+    const x = c => M.l + (c / r) * pw;
+    const y = v => M.t + ph - (v / yMax) * ph;
+    for (let k = 0; k <= 5; k++) {
+      const v = yMax * k / 5, yy = y(v);
+      el(chart, "line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, stroke: "var(--line)", "stroke-width": 1 });
+      el(chart, "text", { x: M.l - 8, y: yy + 4, "text-anchor": "end" }, money(v, true));
+    }
+    // x ticks every 5 or 10 points of all-call share
+    const stepPts = r > 0.4 ? 0.1 : 0.05;
+    for (let c = 0; c <= r + 1e-9; c += stepPts) el(chart, "text", { x: x(c), y: H - M.b + 18, "text-anchor": "middle" }, Math.round(c * 100) + "%");
+    el(chart, "text", { x: M.l + pw / 2, y: H - 4, "text-anchor": "middle" }, "Calls contained in AVA (% of all inbound calls)");
+
+    const area = (lo, hi, color) => {
+      // step-friendly: draw each segment as vertical-then-horizontal
+      let top = "", bot = [];
+      pts.forEach((p, k) => {
+        const xx = x(p.c);
+        if (k === 0) top = "M" + xx + "," + y(hi(p));
+        else top += "L" + xx + "," + y(hi(pts[k - 1])) + "L" + xx + "," + y(hi(p));
+        bot.push([xx, y(lo(p)), k > 0 ? y(lo(pts[k - 1])) : null]);
+      });
+      let d = top;
+      for (let k = bot.length - 1; k >= 0; k--) { d += "L" + bot[k][0] + "," + bot[k][1]; if (bot[k][2] !== null) d += "L" + bot[k][0] + "," + bot[k][2]; }
+      el(chart, "path", { d: d + "Z", fill: color, "fill-opacity": 0.88, stroke: "none" });
+    };
+    area(p => 0, p => p.ivr, "var(--ivr)");
+    area(p => p.ivr, p => p.ivr + p.fixed, "var(--fixed)");
+    area(p => p.ivr + p.fixed, p => p.ivr + p.fixed + p.ava, "var(--ava)");
+    area(p => p.ivr + p.fixed + p.ava, p => p.total, "var(--agent)");
+    let d = "";
+    pts.forEach((p, k) => { d += (k ? "L" + x(p.c) + "," + y(pts[k - 1].total) + "L" : "M") + x(p.c) + "," + y(p.total); });
+    el(chart, "path", { d, fill: "none", stroke: "var(--ink)", "stroke-width": 1.4 });
+
+    el(chart, "line", { x1: M.l, x2: W - M.r, y1: y(m.base.total), y2: y(m.base.total), stroke: "var(--baseline)", "stroke-width": 2, "stroke-dasharray": "6 4" });
+    el(chart, "text", { x: W - M.r - 4, y: y(m.base.total) - 7, "text-anchor": "end", style: "fill:var(--baseline);font-weight:500" }, "Without AVA " + money(m.base.total, true));
+
+    if (m.be !== null) {
+      const bx = x(m.be), by = y(m.base.total);
+      el(chart, "line", { x1: bx, x2: bx, y1: by, y2: M.t + ph, stroke: "var(--accent)", "stroke-width": 1.5 });
+      el(chart, "circle", { cx: bx, cy: by, r: 6, fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2 });
+      const left = bx > M.l + 130;
+      el(chart, "text", { x: bx + (left ? -10 : 10), y: by - 12, "text-anchor": left ? "end" : "start", style: "fill:var(--accent);font-weight:500;font-size:12px" }, "Break-even " + pct(m.be));
+    }
+    const t = m.at(S.target / 100), tx = x(t.c);
+    el(chart, "line", { x1: tx, x2: tx, y1: M.t, y2: M.t + ph, stroke: "var(--ink)", "stroke-width": 1, "stroke-dasharray": "2 3" });
+    el(chart, "circle", { cx: tx, cy: y(t.total), r: 4.5, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 2 });
+    const right = tx < M.l + pw * 0.6;
+    el(chart, "text", { x: tx + (right ? 8 : -8), y: Math.min(M.t + ph - 8, y(t.total) + 20), "text-anchor": right ? "start" : "end", style: "fill:var(--ink);font-weight:500" }, "Target " + pct(t.c) + " · " + money(t.total, true));
+    el(chart, "line", { x1: M.l, x2: W - M.r, y1: M.t + ph, y2: M.t + ph, stroke: "var(--muted)", "stroke-width": 1 });
+  }
+  function setTargetFromEvent(ev) {
+    const b = chart.getBoundingClientRect();
+    const sx = (ev.clientX - b.left) * (W / b.width);
+    const c = Math.min(1, Math.max(0, (sx - M.l) / pw)) * geom.r;
+    S.target = Math.round(c * 200) / 2;
+    $("target").value = S.target;
+    render();
+  }
+  let dragging = false;
+  chart.addEventListener("pointerdown", e => { dragging = true; chart.setPointerCapture(e.pointerId); setTargetFromEvent(e); });
+  chart.addEventListener("pointermove", e => { if (dragging) setTargetFromEvent(e); });
+  chart.addEventListener("pointerup", () => { dragging = false; save(); });
+  chart.addEventListener("pointercancel", () => { dragging = false; });
+
+  let summary = "";
+  function render() {
+    const m = model();
+    const rPct = Math.round(m.r * 1000) / 10;
+    $("target").max = rPct;
+    if (S.target > rPct) S.target = rPct;
+    $("target").value = S.target;
+    if (S.mode === "agents") $("calls").value = Math.round(m.N);
+    else $("agents").value = agentsFmt(m.base.agents).replace(/,/g, "");
+
+    // Calculated values (mirrors the values sheet)
+    const t = m.at(S.target / 100);
+    const rows = [
+      ["Agent calls per hour", m.perHour.toFixed(2)],
+      ["Handle hours per FTE per month", m.fteHandle.toFixed(1)],
+      ["Calls per FTE per month", count(m.perAgent)],
+      ["Agent cost per call", "$" + m.costPerCall.toFixed(2)],
+      ["Inbound calls per month", count(m.N)],
+      ["% of calls reaching AVA", pct(m.r)],
+      ["IVR → AVA → Agent % (at target)", pct(t.esc)],
+      ["Agent hours automated (at target)", count(t.hoursAuto)],
+      ["FTEs required without AVA", agentsFmt(m.base.agents)],
+      ["FTEs required at target", agentsFmt(t.agents)],
+      ["FTEs saved (at target)", agentsFmt(t.fteSaved)]
+    ];
+    $("calc").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+    const w = $("warn");
+    if (S.direct + S.ivr >= 100) { w.hidden = false; w.textContent = "Direct and IVR shares add up to 100%, so no calls reach AVA."; } else w.hidden = true;
+
+    // Verdict
+    if (m.be !== null) {
+      $("beNum").className = "be-num"; $("beNum").textContent = pct(m.be);
+      $("beSub").innerHTML = `AVA must contain about <b>${count(m.be * m.N)}</b> calls a month, which is <b>${m.r > 0 ? pct(m.be / m.r) : "–"}</b> of the calls that reach it, before cost drops below <b>${money(m.base.total)}</b> a month without AVA.`;
+    } else {
+      $("beNum").className = "be-num na"; $("beNum").textContent = "Not reachable";
+      $("beSub").textContent = m.reason;
+    }
+    const sav = m.base.total - t.total;
+    $("targetVal").textContent = pct(t.c);
+    $("targetSub").textContent = (m.r > 0 ? pct(t.c / m.r) : "–") + " of calls that reach AVA; " + pct(t.esc) + " of all calls go on to an agent.";
+    $("sMonth").textContent = money(sav, true); $("sMonth").className = "v " + (sav >= 0 ? "pos" : "neg");
+    $("sYear").textContent = money(sav * 12, true); $("sYear").className = "v " + (sav >= 0 ? "pos" : "neg");
+    $("sAgents").textContent = agentsFmt(t.fteSaved) + " of " + agentsFmt(m.base.agents);
+
+    // Hours → FTE → dollars chain
+    const laborSaved = m.base.agentCost - t.agentCost;
+    const chain = [
+      ["Agent hours automated", count(t.hoursAuto) + " hr", `${count(t.c * m.N)} calls × ${S.aht} sec ÷ 3,600`],
+      ["FTEs saved", agentsFmt(t.fteSaved), `÷ ${m.fteHandle.toFixed(1)} handle hr per FTE` + (S.whole ? ", whole people" : "")],
+      ["Labor saved", money(laborSaved), `× ${money(S.cost)} per FTE`],
+      ["AVA cost", "−" + money(t.ava + t.fixed), "per-call + fixed"],
+      ["Net savings", money(sav), money(sav * 12) + " a year"]
+    ];
+    $("chain").innerHTML = chain.map(([k, v, n], idx) => `<div class="link${idx === chain.length - 1 ? " end" : ""}"><div class="k">${k}</div><div class="v ${idx === chain.length - 1 ? (sav >= 0 ? "pos" : "neg") : ""}">${v}</div><div class="n">${n}</div></div>`).join('<div class="arrow" aria-hidden="true">→</div>');
+    const cash = sav + S.impl / S.months;
+    $("sPay").textContent = S.impl <= 0 ? "No build cost" : cash > 0 ? (S.impl / cash).toFixed(1) + " months" : "Never";
+
+    // Ladder
+    const step = 0.05, out = [];
+    const points = [];
+    for (let c = 0; c <= m.r + 1e-9; c += step) points.push({ c: Math.round(c * 1000) / 1000 });
+    if (m.be !== null) points.push({ c: m.be, be: true });
+    points.push({ c: t.c, tg: true });
+    points.sort((a, b) => a.c - b.c || (a.be ? -1 : 1));
+    const seen = new Set();
+    points.forEach(p => {
+      const key = p.c.toFixed(4) + (p.be ? "b" : p.tg ? "t" : "");
+      if (seen.has(key)) return; seen.add(key);
+      if (!p.be && !p.tg && points.some(q => (q.be || q.tg) && Math.abs(q.c - p.c) < 1e-6)) return;
+      const a = m.at(p.c), s = m.base.total - a.total;
+      const label = pct(p.c) + (p.be ? '<span class="tag">break-even</span>' : "") + (p.tg ? '<span class="tag">target</span>' : "");
+      out.push(`<tr class="${p.be ? "be" : ""} ${p.tg ? "tg" : ""}"><td>${label}</td><td>${m.r > 0 ? pct(p.c / m.r) : "–"}</td><td>${count(a.hoursAuto)}</td><td>${agentsFmt(a.fteSaved)}</td><td>${agentsFmt(a.agents)}</td><td>${money(a.total)}</td><td class="${s >= 0 ? "pos" : "neg"}">${money(s)}</td><td class="${s >= 0 ? "pos" : "neg"}">${money(s * 12)}</td></tr>`);
+    });
+    $("ladder").innerHTML = out.join("");
+
+    // Detail
+    const b = m.base;
+    const drow = (k, x, y, fmt) => { const f = fmt || money; const ch = y - x; return `<tr><td class="lbl">${k}</td><td>${f(x)}</td><td>${f(y)}</td><td class="${ch <= 0 ? "pos" : "neg"}">${ch === 0 ? "–" : (ch > 0 ? "+" : "−") + f(Math.abs(ch))}</td></tr>`; };
+    $("detail").innerHTML =
+      drow("Agent handle hours", b.handleHours, t.handleHours, count) +
+      drow("Agent FTEs", b.agents, t.agents, agentsFmt) +
+      drow("Agent labor", b.agentCost, t.agentCost) +
+      drow("IVR", b.ivr, t.ivr) +
+      drow("AVA per-call", 0, t.ava) +
+      drow("AVA platform + implementation", 0, t.fixed);
+    $("detailFoot").innerHTML = `<tr><td class="lbl">Total per month</td><td>${money(b.total)}</td><td>${money(t.total)}</td><td class="${sav >= 0 ? "pos" : "neg"}">${(sav >= 0 ? "−" : "+") + money(Math.abs(sav))}</td></tr>`;
+
+    const f2 = v => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    const rawA0 = (m.d + m.r) * m.N / m.perAgent, rawA1 = (m.d + t.esc) * m.N / m.perAgent;
+    const avaShare = S.chargeEsc ? m.r : t.c;
+    const beFrac = S.chargeEsc ? (m.r * m.N * S.avaCost + m.fixed) / (m.N * m.costPerCall) : m.fixed / (m.N * (m.costPerCall - S.avaCost));
+    const steps = [
+      `Handle hours per FTE = ${f2(S.hours)} paid hr × ${S.share}% on these calls × ${S.occ}% occupancy = <b>${f2(m.fteHandle)} hr</b>`,
+      `Share reaching AVA = 100% − ${S.direct}% direct − ${S.ivr}% IVR = <b>${pct(m.r)}</b>`,
+      `<b>Without AVA.</b> Agent calls = (${S.direct}% + ${pct(m.r)}) × ${count(m.N)} = ${count((m.d + m.r) * m.N)}. Handle hours = ${count((m.d + m.r) * m.N)} × ${f2(S.aht)} sec ÷ 3,600 = ${f2(m.base.handleHours)}. FTEs = ${f2(m.base.handleHours)} ÷ ${f2(m.fteHandle)} = ${f2(rawA0)}${S.whole ? " → rounded up to " + count(m.base.agents) : ""}. Labor = ${agentsFmt(m.base.agents)} × ${money(S.cost)} = ${money(m.base.agentCost)}. IVR = ${pct(1 - m.d)} × ${count(m.N)} × $${S.ivrCost.toFixed(2)} = ${money(m.base.ivr)}. Total = <b>${money(m.base.total)}</b>`,
+      `<b>Hours automated at ${pct(t.c)} AVA.</b> ${count(t.c * m.N)} contained calls × ${f2(S.aht)} sec ÷ 3,600 = <b>${f2(t.hoursAuto)} hr</b>`,
+      `FTEs saved = ${f2(t.hoursAuto)} ÷ ${f2(m.fteHandle)} = ${f2(t.hoursAuto / m.fteHandle)}${S.whole ? " → whole people: " + count(m.base.agents) + " − " + count(t.agents) + " = " + count(t.fteSaved) : ""} = <b>${agentsFmt(t.fteSaved)} FTEs</b>. FTEs still needed = <b>${agentsFmt(t.agents)}</b>`,
+      `Labor saved = ${agentsFmt(t.fteSaved)} × ${money(S.cost)} = <b>${money(m.base.agentCost - t.agentCost)}</b>`,
+      `AVA cost = ${pct(avaShare)} × ${count(m.N)} × $${S.avaCost.toFixed(2)} = ${money(t.ava)}, plus fixed ${money(t.fixed)} = <b>${money(t.ava + t.fixed)}</b>`,
+      `Net monthly savings = ${money(m.base.agentCost - t.agentCost)} − ${money(t.ava + t.fixed)} = <b>${money(sav)}</b> (× 12 = ${money(sav * 12)} a year). Check: ${money(m.base.total)} without AVA − ${money(t.total)} with AVA = ${money(m.base.total - t.total)}`,
+      `Break-even with fractional agents = ` + (S.chargeEsc ? `(${pct(m.r)} × ${count(m.N)} × $${S.avaCost.toFixed(2)} + ${money(m.fixed)}) ÷ (${count(m.N)} × $${m.costPerCall.toFixed(4)})` : `${money(m.fixed)} ÷ (${count(m.N)} × ($${m.costPerCall.toFixed(4)} − $${S.avaCost.toFixed(2)}))`) + ` = <b>${isFinite(beFrac) && beFrac >= 0 && beFrac <= m.r ? pct(beFrac, 2) : "not reachable"}</b>` + (S.whole ? `. With whole agents, savings only appear once a full agent is freed, so the page finds the lowest containment where cost is at or below ${money(m.base.total)}: <b>${m.be !== null ? pct(m.be) : "not reachable"}</b>.` : ".")
+    ];
+    $("math").innerHTML = steps.map(s => `<li>${s}</li>`).join("");
+
+    drawFlow(m, t);
+    drawChart(m);
+
+    summary = [
+      "AVA containment break-even",
+      `Inbound calls: ${count(m.N)}/month. Direct to agent ${S.direct}%, IVR contained ${S.ivr}%, reaching AVA ${pct(m.r)}`,
+      `Agent: $${count(S.cost)}/month loaded, ${S.hours} paid hr/month, ${S.share}% on these calls, ${S.occ}% occupancy, ${S.aht}s call time → ${m.fteHandle.toFixed(1)} handle hr per FTE, $${m.costPerCall.toFixed(2)}/call`,
+      `At target: ${count(t.hoursAuto)} agent hours automated/month = ${agentsFmt(t.fteSaved)} FTEs saved`,
+      `IVR $${S.ivrCost.toFixed(2)}/call, AVA $${S.avaCost.toFixed(2)}/call${S.chargeEsc ? " (charged on escalated calls too)" : ""}`,
+      `Without AVA: ${agentsFmt(b.agents)} agents, ${money(b.total)}/month`,
+      m.be !== null ? `Break-even AVA containment: ${pct(m.be)} of all calls (${m.r > 0 ? pct(m.be / m.r) : "–"} of AVA calls)` : `Break-even: not reachable. ${m.reason}`,
+      `At ${pct(t.c)} AVA containment: ${agentsFmt(t.agents)} agents, ${money(t.total)}/month, saves ${money(sav)}/month (${money(sav * 12)}/year)`
+    ].join("\n");
+  }
+
+  $("inputs").addEventListener("input", e => { if (e.target.id === "target") return; readForm(); render(); save(); });
+  $("inputs").addEventListener("submit", e => e.preventDefault());
+  $("modeAgents").addEventListener("click", () => { readForm(); setMode("agents"); });
+  $("modeCalls").addEventListener("click", () => { readForm(); setMode("calls"); });
+  $("target").addEventListener("input", e => { S.target = num(e.target.value); render(); save(); });
+  $("reset").addEventListener("click", () => { S = Object.assign({}, DEFAULTS); fillForm(); render(); save(); });
+  $("copy").addEventListener("click", async () => {
+    const btn = $("copy");
+    try { await navigator.clipboard.writeText(summary); btn.textContent = "Copied"; }
+    catch (e) { btn.textContent = "Copy unavailable here"; }
+    setTimeout(() => btn.textContent = "Copy summary", 1800);
+  });
+
+  fillForm(); render();
+})();
+</script>
+</body>
+</html>
