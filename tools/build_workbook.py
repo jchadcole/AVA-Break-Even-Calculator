@@ -27,8 +27,8 @@ inputs = [
  ("% of calls that go directly to an agent", 0.10, "0.0%", "direct"),
  ("% of calls contained in IVR", 0.20, "0.0%", "ivr"),
  ("% of calls contained in AVA (target, % of ALL calls)", 0.50, "0.0%", "target"),
- ("IVR cost per call", 0.50, "$0.00", "ivrcost"),
- ("AVA cost per call", 1.50, "$0.00", "avacost"),
+ ("IVR cost per call (only calls that never reach AVA)", 0.50, "$0.00", "ivrcost"),
+ ("AVA cost per call (replaces the IVR fee)", 1.20, "$0.00", "avacost"),
  ("Charge AVA on escalated calls too (1 = yes, 0 = no)", 1, "0", "charge"),
  ("Round FTEs up to whole people (1 = yes, 0 = fractional)", 0, "0", "whole"),
  ("AVA platform fee per month", 0, "$#,##0", "platform"),
@@ -66,7 +66,7 @@ rows = [
  ("Agent handle hours", None, None, "#,##0.0", "hh"),
  ("Agent FTEs required", None, None, "#,##0.00", "agents"),
  ("Agent labor", None, None, "$#,##0", "labor"),
- ("IVR cost", f"=(1-{R['direct']})*{R['calls']}*{R['ivrcost']}", f"=(1-{R['direct']})*{R['calls']}*{R['ivrcost']}", "$#,##0", "ivrc"),
+ ("IVR cost", f"=(1-{R['direct']})*{R['calls']}*{R['ivrcost']}", f"={R['ivr']}*{R['calls']}*{R['ivrcost']}", "$#,##0", "ivrc"),
  ("AVA per-call cost", "=0", f"=IF({R['charge']}=1,$B${R['reach']},{R['target']})*{R['calls']}*{R['avacost']}", "$#,##0", "avac"),
  ("AVA fixed cost", "=0", f"=$B${R['fixed']}", "$#,##0", "fixc"),
  ("Total monthly cost", None, None, "$#,##0", "total"),
@@ -93,8 +93,9 @@ chain = [
  ("FTEs saved (fractional)", f"=B{{hauto}}/B{R['fteh']}", "#,##0.00", "ftefrac", "hours automated ÷ handle hours per FTE"),
  ("FTEs saved (as staffed)", f"=B{R['agents']}-C{R['agents']}", "#,##0.00", "ftesaved", "FTEs without AVA − FTEs at target (whole people if rounding is on)"),
  ("Labor saved", f"=B{{ftesaved}}*{R['cost']}", "$#,##0", "lsaved", "FTEs saved × fully loaded cost"),
+ ("IVR fees avoided", f"=B{R['ivrc']}-C{R['ivrc']}", "$#,##0", "ivrsaved", "calls reaching AVA × IVR cost per call (they pay the AVA fee instead)"),
  ("AVA cost (per-call + fixed)", f"=C{R['avac']}+C{R['fixc']}", "$#,##0", "avatot", ""),
- ("Net monthly savings", f"=B{{lsaved}}-B{{avatot}}", "$#,##0", "net", "labor saved − AVA cost; must equal monthly savings above"),
+ ("Net monthly savings", f"=B{{lsaved}}+B{{ivrsaved}}-B{{avatot}}", "$#,##0", "net", "labor saved + IVR fees avoided − AVA cost; must equal monthly savings above"),
 ]
 for label, f, fmt, key, n in chain: R[key] = r; r += 1
 r -= len(chain)
@@ -106,7 +107,7 @@ ws.cell(r, 1, "First 0.1% step at or above break-even (works with or without rou
 ws.cell(r, 2, "=_xlfn.MINIFS(Ladder!A:A,Ladder!H:H,\">=0\")").number_format = "0.0%"; ws.cell(r, 5, "lowest containment in the Ladder sheet with savings ≥ 0").font = Font(italic=True, color="666666"); R["be"] = r; r += 1
 ws.cell(r, 1, "Same, as % of calls reaching AVA"); ws.cell(r, 2, f"=B{R['be']}/B{R['reach']}").number_format = "0.0%"; r += 1
 ws.cell(r, 1, "Closed form, fractional agents (cross-check)")
-ws.cell(r, 2, f"=IF({R['charge']}=1,(B{R['reach']}*{R['calls']}*{R['avacost']}+B{R['fixed']})/({R['calls']}*B{R['cpc']}),B{R['fixed']}/({R['calls']}*(B{R['cpc']}-{R['avacost']})))").number_format = "0.00%"
+ws.cell(r, 2, f"=MAX(0,IF({R['charge']}=1,(B{R['reach']}*{R['calls']}*({R['avacost']}-{R['ivrcost']})+B{R['fixed']})/({R['calls']}*B{R['cpc']}),(B{R['fixed']}-B{R['reach']}*{R['calls']}*{R['ivrcost']})/({R['calls']}*(B{R['cpc']}-{R['avacost']}))))").number_format = "0.00%"
 ws.cell(r, 5, "charged: (AVA calls × AVA cost + fixed) ÷ (calls × agent cost per call); not charged: fixed ÷ (calls × (agent cost per call − AVA cost))").font = Font(italic=True, color="666666"); r += 1
 
 # Ladder
@@ -125,7 +126,7 @@ for k in range(0, 1001):
     L.cell(rr, 9, f"=IF(A{rr}=\"\",\"\",A{rr}*{C}{R['calls']}*{C}{R['aht']}/3600)").number_format = "#,##0"
     L.cell(rr, 10, f"=IF(A{rr}=\"\",\"\",{C}$B${R['agents']}-E{rr})").number_format = "#,##0.00"
     L.cell(rr, 6, f"=IF(A{rr}=\"\",\"\",IF({C}{R['charge']}=1,{reach},A{rr})*{C}{R['calls']}*{C}{R['avacost']})").number_format = "$#,##0"
-    L.cell(rr, 7, f"=IF(A{rr}=\"\",\"\",E{rr}*{C}{R['cost']}+{C}$B${R['ivrc']}+F{rr}+{C}$B${R['fixed']})").number_format = "$#,##0"
+    L.cell(rr, 7, f"=IF(A{rr}=\"\",\"\",E{rr}*{C}{R['cost']}+{C}$C${R['ivrc']}+F{rr}+{C}$B${R['fixed']})").number_format = "$#,##0"
     L.cell(rr, 8, f"=IF(A{rr}=\"\",\"\",{C}$B${R['total']}-G{rr})").number_format = "$#,##0"
 L.freeze_panes = "A2"
 
@@ -139,11 +140,11 @@ def lad(col, cexpr):  # lookup a ladder column at containment cexpr
 checks = [
  ("Four paths add to 100%", "=1", f"={C}B{R['sum']}", "0.0%"),
  ("At 0% AVA: FTEs equal FTEs without AVA", f"={C}B{R['agents']}", f"={lad('E', '0')}", "#,##0.0"),
- ("At 0% AVA: savings = −(AVA per-call cost + fixed) when AVA is charged on escalations", f"=-(IF({C}{R['charge']}=1,{reach}*{C}{R['calls']}*{C}{R['avacost']},0)+{C}B{R['fixed']})", f"={lad('H', '0')}", "$#,##0"),
+ ("At 0% AVA: savings = IVR fees avoided − (AVA per-call cost + fixed) when AVA is charged on escalations", f"={reach}*{C}{R['calls']}*{C}{R['ivrcost']}-(IF({C}{R['charge']}=1,{reach}*{C}{R['calls']}*{C}{R['avacost']},0)+{C}B{R['fixed']})", f"={lad('H', '0')}", "$#,##0"),
  ("At break-even: savings are zero or slightly positive", "≥ 0", f"={lad('H', C + 'B' + str(R['be']))}", "$#,##0"),
  ("One step (0.1%) below break-even: savings are negative", "< 0", f"=IF({C}B{R['be']}=0,\"n/a\",{lad('H', C + 'B' + str(R['be']) + '-0.001')})", "$#,##0"),
  ("At maximum AVA (all calls reaching AVA contained): only direct calls need FTEs", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']}-0.000000001,0),{C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']})", f"=INDEX(Ladder!E:E,MATCH(ROUND({reach},3),Ladder!A:A,0))", "#,##0.0"),
- ("Hours chain: labor saved − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
+ ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]

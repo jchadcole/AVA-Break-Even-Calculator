@@ -19,7 +19,10 @@ Every inbound call takes one of four paths:
 - Agent hours automated = AVA-contained calls × average call time ÷ 3600
 - FTEs saved = agent hours automated ÷ handle hours per FTE
 - Labor saved = FTEs saved × fully loaded agent cost
-- Net savings = labor saved − AVA per-call cost − AVA fixed costs
+- IVR fees avoided = calls reaching AVA × IVR cost per call
+- Net savings = labor saved + IVR fees avoided − AVA per-call cost − AVA fixed costs
+
+Each call is billed once for automation: IVR-contained calls pay the IVR fee; calls that reach AVA pay the AVA fee instead (not IVR + AVA), plus agent time if they escalate.
 
 The comparison point is the same flow with no AVA, where every call that leaves the IVR goes to an agent. Break-even is the lowest AVA containment where monthly cost is at or below that figure.
 

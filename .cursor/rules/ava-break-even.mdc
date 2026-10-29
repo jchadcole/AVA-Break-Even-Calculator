@@ -33,13 +33,15 @@ Share reaching AVA `r = 1 − direct − ivr`. "% of AVA calls" = AVA contained 
 - Agent hours automated = AVA-contained calls × aht ÷ 3600
 - FTEs saved = FTEs without AVA − FTEs at target (equals hours automated ÷ handle hours per FTE when fractional)
 - Labor saved = FTEs saved × cost
-- AVA per-call cost = AVA cost per call × (all calls reaching AVA if `chargeEsc` is on, default; otherwise only contained calls)
+- Billing rule: a call pays one automation fee. IVR-contained = IVR fee. IVR → AVA (contained or escalated) = AVA fee only, never IVR + AVA. Escalated calls add agent time.
+- AVA per-call cost = AVA cost per call (`avaCost`, default $1.20) × (all calls reaching AVA if `chargeEsc` is on, default; otherwise only contained calls)
 - AVA fixed = platform fee per month + implementation ÷ months
-- IVR cost = (1 − direct) × calls × IVR cost per call. Same with and without AVA, so it never moves break-even.
-- Net savings = labor saved − AVA per-call cost − AVA fixed = (cost without AVA) − (cost at target)
+- IVR cost (`ivrCost`, $0.50): without AVA = (1 − direct) × calls × IVR fee (IVR-contained + IVR→agent); with AVA = ivr × calls × IVR fee (IVR-contained only)
+- IVR fees avoided = r × calls × IVR fee
+- Net savings = labor saved + IVR fees avoided − AVA per-call cost − AVA fixed = (cost without AVA) − (cost at target)
 
 Comparison point: the same flow with no AVA, where every call leaving the IVR goes to an agent.
-Break-even: the lowest AVA containment where monthly cost ≤ cost without AVA (found by scan + bisection in `model()`). Closed form with fractional FTEs: charged on escalations `c = (r × calls × AVA cost + fixed) ÷ (calls × agent cost per call)`; not charged `c = fixed ÷ (calls × (agent cost per call − AVA cost))`.
+Break-even: the lowest AVA containment where monthly cost ≤ cost without AVA (found by scan + bisection in `model()`). Closed form with fractional FTEs: charged on escalations `c = (r × calls × (AVA fee − IVR fee) + fixed) ÷ (calls × agent cost per call)`; not charged `c = (fixed − r × calls × IVR fee) ÷ (calls × (agent cost per call − AVA fee))`; floor both at 0.
 
 Volume input: calls per month is typed in by default (`mode: "calls"`). The "From agent headcount" toggle instead derives calls = FTEs today × calls per FTE ÷ (direct + r).
 
@@ -53,9 +55,9 @@ Volume input: calls per month is typed in by default (`mode: "calls"`). The "Fro
 
 - Keep it a single no-build `index.html`. Load any library only from a pinned CDN URL.
 - All colors are CSS tokens on `:root` with dark-mode overrides; keep both themes working and the layout usable at 400px wide.
-- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v3`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
+- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v4`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
 - The "Show the math at target" panel prints each step with live numbers. Update it whenever a formula changes.
 
 ## Keep the workbook in sync
 
-Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $906,398 without AVA, 77.1 FTEs saved and $438,699 net monthly savings at 50% AVA containment, break-even 9.34% (fractional FTEs). Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.
+Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $906,398 without AVA, 77.1 FTEs saved, $33,600 IVR fees avoided and $492,459 net monthly savings at 50% AVA containment, break-even 4.36% (fractional FTEs). Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.

@@ -236,11 +236,11 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       <fieldset>
         <legend>Automation costs</legend>
         <div class="field">
-          <label for="ivrCost">IVR cost per call</label>
+          <label for="ivrCost">IVR cost per call<small>Charged only on calls that never reach AVA.</small></label>
           <div class="prefix"><span>$</span><input type="number" id="ivrCost" min="0" step="0.05"></div>
         </div>
         <div class="field">
-          <label for="avaCost">AVA cost per call</label>
+          <label for="avaCost">AVA cost per call<small>Replaces the IVR fee once a call reaches AVA.</small></label>
           <div class="prefix"><span>$</span><input type="number" id="avaCost" min="0" step="0.05"></div>
         </div>
         <label class="check"><input type="checkbox" id="chargeEsc"><span>Charge AVA on escalated calls too<small>Calls that go IVR → AVA → Agent still use an AVA session.</small></span></label>
@@ -347,12 +347,13 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
           <li>Agent hours automated = <code>calls contained in AVA × average call time ÷ 3600</code></li>
           <li>FTEs saved = <code>agent hours automated ÷ handle hours per FTE</code></li>
           <li>Labor saved = <code>FTEs saved × fully loaded agent cost</code></li>
-          <li>Net savings = <code>labor saved − AVA per-call cost − AVA platform fee − implementation ÷ months</code></li>
+          <li>IVR fees avoided = <code>calls reaching AVA × IVR cost per call</code> (those calls now pay the AVA fee instead)</li>
+          <li>Net savings = <code>labor saved + IVR fees avoided − AVA per-call cost − AVA platform fee − implementation ÷ months</code></li>
           <li>FTEs needed for non-automated calls = <code>(direct % + IVR → AVA → Agent %) × calls × call time ÷ 3600 ÷ handle hours per FTE</code>, rounded up when rounding to whole people.</li>
           <li>From headcount: inbound calls = <code>FTEs today × handle hours per FTE × 3600 ÷ call time ÷ (direct % + % reaching AVA)</code></li>
           <li>Agent calls per hour = <code>3600 ÷ call time × occupancy</code>; agent cost per call = <code>agent cost ÷ (handle hours per FTE × 3600 ÷ call time)</code></li>
         </ul>
-        <p>The comparison point is the same flow without AVA, where every call that leaves the IVR goes to an agent. Break-even is the lowest AVA containment where monthly cost is at or below that figure. IVR cost is the same on both sides, so it never moves the break-even.</p>
+        <p>The comparison point is the same flow without AVA, where every call that leaves the IVR goes to an agent. Break-even is the lowest AVA containment where monthly cost is at or below that figure. A call is billed once for automation: IVR-contained calls pay the IVR fee; calls that reach AVA pay the AVA fee instead of the IVR fee (plus agent time if they escalate). Without AVA, calls that leave the IVR for an agent pay the IVR fee. So AVA's real added cost per call is the AVA fee minus the IVR fee it replaces.</p>
       </details>
     </div>
   </div>
@@ -364,10 +365,10 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     mode: "calls", agents: 100, calls: 96000,
     cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: false,
     direct: 10, ivr: 20,
-    ivrCost: 0.5, avaCost: 1.5, chargeEsc: true, platform: 0, impl: 0, months: 36,
+    ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
     target: 50
   };
-  const KEY = "ava-containment-break-even-v3";
+  const KEY = "ava-containment-break-even-v4";
   const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months"];
   const CHECKS = ["whole", "chargeEsc"];
   let S = load();
@@ -430,10 +431,11 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     else N = S.calls;
     const fixed = S.platform + S.impl / S.months;
     const need = calls => { const a = perAgent > 0 ? calls / perAgent : 0; return S.whole ? Math.ceil(a - 1e-9) : a; };
-    const ivrSpend = N * (1 - d) * S.ivrCost;
+    const ivrBase = N * (1 - d) * S.ivrCost;  // without AVA: IVR-contained + IVR→agent
+    const ivrWith = N * i * S.ivrCost;        // with AVA: only IVR-contained calls pay the IVR fee
 
     const baseAgents = need((d + r) * N);
-    const base = { agents: baseAgents, agentCost: baseAgents * S.cost, ivr: ivrSpend, ava: 0, fixed: 0 };
+    const base = { agents: baseAgents, agentCost: baseAgents * S.cost, ivr: ivrBase, ava: 0, fixed: 0 };
     base.total = base.agentCost + base.ivr;
 
     const at = c => {
@@ -444,7 +446,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       const ava = N * (S.chargeEsc ? r : c) * S.avaCost;
       const hoursAuto = c * N * hrsPerCall;
       const handleHours = (d + esc) * N * hrsPerCall;
-      return { c, esc, agents, agentCost, ivr: ivrSpend, ava, fixed, hoursAuto, handleHours, fteSaved: baseAgents - agents, total: agentCost + ivrSpend + ava + fixed };
+      return { c, esc, agents, agentCost, ivr: ivrWith, ava, fixed, hoursAuto, handleHours, fteSaved: baseAgents - agents, total: agentCost + ivrWith + ava + fixed };
     };
 
     // Break-even: lowest c with total <= baseline (scan, then refine)
@@ -654,7 +656,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       ["Agent hours automated", count(t.hoursAuto) + " hr", `${count(t.c * m.N)} calls × ${S.aht} sec ÷ 3,600`],
       ["FTEs saved", agentsFmt(t.fteSaved), `÷ ${m.fteHandle.toFixed(1)} handle hr per FTE` + (S.whole ? ", whole people" : "")],
       ["Labor saved", money(laborSaved), `× ${money(S.cost)} per FTE`],
-      ["AVA cost", "−" + money(t.ava + t.fixed), "per-call + fixed"],
+      ["AVA cost, net of IVR", (t.ava + t.fixed - (m.base.ivr - t.ivr) < 0 ? "+" : "−") + money(Math.abs(t.ava + t.fixed - (m.base.ivr - t.ivr))), `AVA ${money(t.ava + t.fixed, true)} − IVR fees avoided ${money(m.base.ivr - t.ivr, true)}`],
       ["Net savings", money(sav), money(sav * 12) + " a year"]
     ];
     $("chain").innerHTML = chain.map(([k, v, n], idx) => `<div class="link${idx === chain.length - 1 ? " end" : ""}"><div class="k">${k}</div><div class="v ${idx === chain.length - 1 ? (sav >= 0 ? "pos" : "neg") : ""}">${v}</div><div class="n">${n}</div></div>`).join('<div class="arrow" aria-hidden="true">→</div>');
@@ -694,7 +696,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     const f2 = v => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
     const rawA0 = (m.d + m.r) * m.N / m.perAgent, rawA1 = (m.d + t.esc) * m.N / m.perAgent;
     const avaShare = S.chargeEsc ? m.r : t.c;
-    const beFrac = S.chargeEsc ? (m.r * m.N * S.avaCost + m.fixed) / (m.N * m.costPerCall) : m.fixed / (m.N * (m.costPerCall - S.avaCost));
+    const beFrac = Math.max(0, S.chargeEsc ? (m.r * m.N * (S.avaCost - S.ivrCost) + m.fixed) / (m.N * m.costPerCall) : (m.fixed - m.r * m.N * S.ivrCost) / (m.N * (m.costPerCall - S.avaCost)));
     const steps = [
       `Handle hours per FTE = ${f2(S.hours)} paid hr × ${S.share}% on these calls × ${S.occ}% occupancy = <b>${f2(m.fteHandle)} hr</b>`,
       `Share reaching AVA = 100% − ${S.direct}% direct − ${S.ivr}% IVR = <b>${pct(m.r)}</b>`,
@@ -703,8 +705,9 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       `FTEs saved = ${f2(t.hoursAuto)} ÷ ${f2(m.fteHandle)} = ${f2(t.hoursAuto / m.fteHandle)}${S.whole ? " → whole people: " + count(m.base.agents) + " − " + count(t.agents) + " = " + count(t.fteSaved) : ""} = <b>${agentsFmt(t.fteSaved)} FTEs</b>. FTEs still needed = <b>${agentsFmt(t.agents)}</b>`,
       `Labor saved = ${agentsFmt(t.fteSaved)} × ${money(S.cost)} = <b>${money(m.base.agentCost - t.agentCost)}</b>`,
       `AVA cost = ${pct(avaShare)} × ${count(m.N)} × $${S.avaCost.toFixed(2)} = ${money(t.ava)}, plus fixed ${money(t.fixed)} = <b>${money(t.ava + t.fixed)}</b>`,
-      `Net monthly savings = ${money(m.base.agentCost - t.agentCost)} − ${money(t.ava + t.fixed)} = <b>${money(sav)}</b> (× 12 = ${money(sav * 12)} a year). Check: ${money(m.base.total)} without AVA − ${money(t.total)} with AVA = ${money(m.base.total - t.total)}`,
-      `Break-even with fractional agents = ` + (S.chargeEsc ? `(${pct(m.r)} × ${count(m.N)} × $${S.avaCost.toFixed(2)} + ${money(m.fixed)}) ÷ (${count(m.N)} × $${m.costPerCall.toFixed(4)})` : `${money(m.fixed)} ÷ (${count(m.N)} × ($${m.costPerCall.toFixed(4)} − $${S.avaCost.toFixed(2)}))`) + ` = <b>${isFinite(beFrac) && beFrac >= 0 && beFrac <= m.r ? pct(beFrac, 2) : "not reachable"}</b>` + (S.whole ? `. With whole agents, savings only appear once a full agent is freed, so the page finds the lowest containment where cost is at or below ${money(m.base.total)}: <b>${m.be !== null ? pct(m.be) : "not reachable"}</b>.` : ".")
+      `IVR fees avoided = ${pct(m.r)} reaching AVA × ${count(m.N)} × $${S.ivrCost.toFixed(2)} = <b>${money(m.base.ivr - t.ivr)}</b>. With AVA only the ${S.ivr}% IVR-contained calls pay the IVR fee: ${money(t.ivr)}`,
+      `Net monthly savings = ${money(m.base.agentCost - t.agentCost)} labor + ${money(m.base.ivr - t.ivr)} IVR avoided − ${money(t.ava + t.fixed)} AVA = <b>${money(sav)}</b> (× 12 = ${money(sav * 12)} a year). Check: ${money(m.base.total)} without AVA − ${money(t.total)} with AVA = ${money(m.base.total - t.total)}`,
+      `Break-even with fractional agents = ` + (S.chargeEsc ? `(${pct(m.r)} × ${count(m.N)} × ($${S.avaCost.toFixed(2)} AVA − $${S.ivrCost.toFixed(2)} IVR) + ${money(m.fixed)}) ÷ (${count(m.N)} × $${m.costPerCall.toFixed(4)})` : `(${money(m.fixed)} − ${pct(m.r)} × ${count(m.N)} × $${S.ivrCost.toFixed(2)}) ÷ (${count(m.N)} × ($${m.costPerCall.toFixed(4)} − $${S.avaCost.toFixed(2)}))`) + ` = <b>${isFinite(beFrac) && beFrac >= 0 && beFrac <= m.r ? pct(beFrac, 2) : "not reachable"}</b>` + (S.whole ? `. With whole agents, savings only appear once a full agent is freed, so the page finds the lowest containment where cost is at or below ${money(m.base.total)}: <b>${m.be !== null ? pct(m.be) : "not reachable"}</b>.` : ".")
     ];
     $("math").innerHTML = steps.map(s => `<li>${s}</li>`).join("");
 
@@ -716,7 +719,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       `Inbound calls: ${count(m.N)}/month. Direct to agent ${S.direct}%, IVR contained ${S.ivr}%, reaching AVA ${pct(m.r)}`,
       `Agent: $${count(S.cost)}/month loaded, ${S.hours} paid hr/month, ${S.share}% on these calls, ${S.occ}% occupancy, ${S.aht}s call time → ${m.fteHandle.toFixed(1)} handle hr per FTE, $${m.costPerCall.toFixed(2)}/call`,
       `At target: ${count(t.hoursAuto)} agent hours automated/month = ${agentsFmt(t.fteSaved)} FTEs saved`,
-      `IVR $${S.ivrCost.toFixed(2)}/call, AVA $${S.avaCost.toFixed(2)}/call${S.chargeEsc ? " (charged on escalated calls too)" : ""}`,
+      `IVR $${S.ivrCost.toFixed(2)}/call (only calls that never reach AVA), AVA $${S.avaCost.toFixed(2)}/call${S.chargeEsc ? " (charged on escalated calls too)" : ""}`,
       `Without AVA: ${agentsFmt(b.agents)} agents, ${money(b.total)}/month`,
       m.be !== null ? `Break-even AVA containment: ${pct(m.be)} of all calls (${m.r > 0 ? pct(m.be / m.r) : "–"} of AVA calls)` : `Break-even: not reachable. ${m.reason}`,
       `At ${pct(t.c)} AVA containment: ${agentsFmt(t.agents)} agents, ${money(t.total)}/month, saves ${money(sav)}/month (${money(sav * 12)}/year)`
