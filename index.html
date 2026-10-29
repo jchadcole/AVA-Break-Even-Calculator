@@ -363,12 +363,12 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
 (function () {
   const DEFAULTS = {
     mode: "calls", agents: 100, calls: 96000,
-    cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: false,
+    cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: true,
     direct: 10, ivr: 20,
     ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
     target: 50
   };
-  const KEY = "ava-containment-break-even-v4";
+  const KEY = "ava-containment-break-even-v5";
   const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months"];
   const CHECKS = ["whole", "chargeEsc"];
   let S = load();

@@ -29,7 +29,7 @@ Share reaching AVA `r = 1 − direct − ivr`. "% of AVA calls" = AVA contained 
 - Calls per FTE per month = handle hours per FTE × 3600 ÷ average call time (`aht`, 600 s)
 - Agent cost per call = fully loaded agent cost (`cost`, $7,000/FTE/month) ÷ calls per FTE
 - Agent handle hours = (direct + IVR→AVA→agent) × calls × aht ÷ 3600
-- FTEs required = agent handle hours ÷ handle hours per FTE; rounded up only when "Round FTEs up to whole people" (`whole`) is on. Fractional by default.
+- FTEs required = agent handle hours ÷ handle hours per FTE; rounded up only when "Round FTEs up to whole people" (`whole`) is on. Whole people by default.
 - Agent hours automated = AVA-contained calls × aht ÷ 3600
 - FTEs saved = FTEs without AVA − FTEs at target (equals hours automated ÷ handle hours per FTE when fractional)
 - Labor saved = FTEs saved × cost
@@ -55,9 +55,9 @@ Volume input: calls per month is typed in by default (`mode: "calls"`). The "Fro
 
 - Keep it a single no-build `index.html`. Load any library only from a pinned CDN URL.
 - All colors are CSS tokens on `:root` with dark-mode overrides; keep both themes working and the layout usable at 400px wide.
-- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v4`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
+- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v5`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
 - The "Show the math at target" panel prints each step with live numbers. Update it whenever a formula changes.
 
 ## Keep the workbook in sync
 
-Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $906,398 without AVA, 77.1 FTEs saved, $33,600 IVR fees avoided and $492,459 net monthly savings at 50% AVA containment, break-even 4.36% (fractional FTEs). Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.
+Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $911,200 without AVA, 77 FTEs saved, $33,600 IVR fees avoided and $491,960 net monthly savings at 50% AVA containment, break-even 4.10% (whole FTEs). Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.

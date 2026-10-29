@@ -30,7 +30,7 @@ inputs = [
  ("IVR cost per call (only calls that never reach AVA)", 0.50, "$0.00", "ivrcost"),
  ("AVA cost per call (replaces the IVR fee)", 1.20, "$0.00", "avacost"),
  ("Charge AVA on escalated calls too (1 = yes, 0 = no)", 1, "0", "charge"),
- ("Round FTEs up to whole people (1 = yes, 0 = fractional)", 0, "0", "whole"),
+ ("Round FTEs up to whole people (1 = yes, 0 = fractional)", 1, "0", "whole"),
  ("AVA platform fee per month", 0, "$#,##0", "platform"),
  ("AVA implementation (one-time)", 0, "$#,##0", "impl"),
  ("Spread implementation over (months)", 36, "0", "months"),
