@@ -302,7 +302,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
         <div class="card-head">
           <h2>Monthly cost by AVA containment</h2>
           <div class="legend">
-            <span><i class="line"></i>Without AVA</span>
+            <span><i class="line"></i>Without AVA (agents + IVR)</span>
             <span><i style="background:var(--agent)"></i>Agents</span>
             <span><i style="background:var(--ava)"></i>AVA per call</span>
             <span><i style="background:var(--fixed)"></i>AVA fixed</span>
@@ -574,7 +574,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     el(chart, "path", { d, fill: "none", stroke: "var(--ink)", "stroke-width": 1.4 });
 
     el(chart, "line", { x1: M.l, x2: W - M.r, y1: y(m.base.total), y2: y(m.base.total), stroke: "var(--baseline)", "stroke-width": 2, "stroke-dasharray": "6 4" });
-    el(chart, "text", { x: W - M.r - 4, y: y(m.base.total) - 7, "text-anchor": "end", style: "fill:var(--baseline);font-weight:500" }, "Without AVA " + money(m.base.total, true));
+    el(chart, "text", { x: W - M.r - 4, y: y(m.base.total) - 7, "text-anchor": "end", style: "fill:var(--baseline);font-weight:500" }, "Without AVA (agents + IVR) " + money(m.base.total, true));
 
     if (m.be !== null) {
       const bx = x(m.be), by = y(m.base.total);
@@ -636,7 +636,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     // Verdict
     if (m.be !== null) {
       $("beNum").className = "be-num"; $("beNum").textContent = pct(m.be);
-      $("beSub").innerHTML = `AVA must contain about <b>${count(m.be * m.N)}</b> calls a month, which is <b>${m.r > 0 ? pct(m.be / m.r) : "–"}</b> of the calls that reach it, before cost drops below <b>${money(m.base.total)}</b> a month without AVA.`;
+      $("beSub").innerHTML = `AVA must contain about <b>${count(m.be * m.N)}</b> calls a month, which is <b>${m.r > 0 ? pct(m.be / m.r) : "–"}</b> of the calls that reach it, before cost drops below the <b>${money(m.base.total)}</b> a month spent without AVA (${money(m.base.agentCost)} agent labor + ${money(m.base.ivr)} IVR).`;
     } else {
       $("beNum").className = "be-num na"; $("beNum").textContent = "Not reachable";
       $("beSub").textContent = m.reason;
