@@ -26,6 +26,7 @@ The comparison point is the same flow with no AVA, where every call that leaves 
 ## Files
 
 - `index.html` is the calculator. It is a single self-contained page; inputs are saved in the viewer's browser.
-- `ava-break-even-check.xlsx` recomputes everything with visible spreadsheet formulas and runs sanity checks, so results can be validated independently.
+- `ava-break-even-check.xlsx` recomputes everything with visible spreadsheet formulas and runs sanity checks, so results can be validated independently. Regenerate it with `pip install openpyxl && python tools/build_workbook.py` after changing the model.
+- `.cursor/rules/ava-break-even.mdc` gives Cursor the model, formulas and conventions for this project.
 
 Values on the page are examples until replaced with real figures.
