@@ -34,6 +34,8 @@ inputs = [
  ("AVA platform fee per month", 0, "$#,##0", "platform"),
  ("AVA implementation (one-time)", 0, "$#,##0", "impl"),
  ("Spread implementation over (months)", 36, "0", "months"),
+ ("Years to show in the year-by-year view (1-15)", 5, "0", "years"),
+ ("Containment increase per year (points of all calls)", 0.05, "0.0%", "growth"),
 ]
 R = {}
 r = 5
@@ -102,6 +104,26 @@ r -= len(chain)
 for label, f, fmt, key, n in chain:
     ws.cell(r, 1, label); ws.cell(r, 2, f.format(**{k: v for k, v in R.items() if isinstance(v, int)})).number_format = fmt; ws.cell(r, 5, n).font = note; r += 1
 r += 1
+head(r, "Year by year (containment rises from the target by the yearly increase, capped at the share reaching AVA)"); r += 1
+for i, h in enumerate(["Year", "AVA contained", "FTEs saved", "Net savings that year", "Cumulative"]):
+    ws.cell(r, i + 1, h).font = bold
+r += 1
+R["yfirst"] = r
+amort = f"{R['impl']}/{R['months']}"
+for y in range(1, 16):
+    rr = r + y - 1
+    show = f"{y}<={R['years']}"
+    cexpr = f"MIN($B${R['reach']},{R['target']}+{R['growth']}*{y - 1})"
+    hrs = f"({R['direct']}+$B${R['reach']}-B{rr})*{R['calls']}*{R['aht']}/3600"
+    fte = f"IF({R['whole']}=1,ROUNDUP({hrs}/$B${R['fteh']}-0.000000001,0),{hrs}/$B${R['fteh']})"
+    ws.cell(rr, 1, f"=IF({show},{y},\"\")")
+    ws.cell(rr, 2, f"=IF({show},{cexpr},\"\")").number_format = "0.0%"
+    ws.cell(rr, 3, f"=IF({show},$B${R['agents']}-{fte},\"\")").number_format = "#,##0.0"
+    cost_with = f"({fte})*{R['cost']}+$C${R['ivrc']}+IF({R['charge']}=1,$B${R['reach']},B{rr})*{R['calls']}*{R['avacost']}+{R['platform']}"
+    ws.cell(rr, 4, f"=IF({show},12*($B${R['total']}-({cost_with}))-IF({y}=1,{R['impl']},0),\"\")").number_format = "$#,##0"
+    ws.cell(rr, 5, f"=IF({show},SUM($D${r}:D{rr}),\"\")").number_format = "$#,##0"
+ws.cell(r + 15, 1, "Each year uses that year's containment for all 12 months. Implementation is charged in full in year 1.").font = Font(italic=True, color="666666")
+r += 17
 head(r, "Break-even AVA containment (% of all calls)"); r += 1
 ws.cell(r, 1, "First 0.1% step at or above break-even (works with or without rounding)")
 ws.cell(r, 2, "=_xlfn.MINIFS(Ladder!A:A,Ladder!H:H,\">=0\")").number_format = "0.0%"; ws.cell(r, 5, "lowest containment in the Ladder sheet with savings ≥ 0").font = Font(italic=True, color="666666"); R["be"] = r; r += 1
@@ -146,6 +168,7 @@ checks = [
  ("At maximum AVA (all calls reaching AVA contained): only direct calls need FTEs", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']}-0.000000001,0),{C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']})", f"=INDEX(Ladder!E:E,MATCH(ROUND({reach},3),Ladder!A:A,0))", "#,##0.0"),
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
+ ("Year 1 = 12 × (monthly savings at target + implementation ÷ months) − implementation", f"=12*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]
 for i, (label, exp, got, fmt) in enumerate(checks):
