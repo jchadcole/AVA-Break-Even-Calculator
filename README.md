@@ -21,6 +21,7 @@ Every inbound call takes one of four paths:
 - Labor saved = FTEs saved × fully loaded agent cost
 - IVR fees avoided = calls reaching AVA × IVR cost per call
 - Net savings = labor saved + IVR fees avoided − AVA per-call cost − AVA fixed costs
+- Agent-hour equivalents: dollar amounts ÷ agent cost per handle hour (cost ÷ handle hours per FTE). The page shows hours first with dollars beside, except the year-by-year chart, which is in dollars
 - Year by year: containment starts at the target and rises by a configurable number of points each year (capped at the share of calls reaching AVA); each year's savings = 12 months at that containment, with implementation charged in year 1
 
 Each call is billed once for automation: IVR-contained calls pay the IVR fee; calls that reach AVA pay the AVA fee instead (not IVR + AVA), plus agent time if they escalate.

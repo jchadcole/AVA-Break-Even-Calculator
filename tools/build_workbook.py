@@ -49,6 +49,7 @@ calc = [
  ("Handle hours per FTE per month", f"={R['hours']}*{R['share']}*{R['occ']}", "#,##0.00", "fteh", "paid hours × % on these calls × occupancy"),
  ("Calls per FTE per month", f"=B{{fteh}}*3600/{R['aht']}", "#,##0.0", "peragent", "handle hours per FTE × 3600 ÷ call time"),
  ("Agent cost per call", f"={R['cost']}/B{{peragent}}", "$0.0000", "cpc", "agent cost ÷ calls per FTE per month"),
+ ("Agent cost per handle hour", f"={R['cost']}/B{{fteh}}", "$0.00", "rate", "agent cost ÷ handle hours per FTE; any dollar amount ÷ this = its agent-hour equivalent"),
  ("% of calls reaching AVA", f"=1-{R['direct']}-{R['ivr']}", "0.0%", "reach", "100% − direct − IVR contained"),
  ("% IVR → AVA → Agent (at target)", f"=B{{reach}}-{R['target']}", "0.0%", "esc", "reaching AVA − AVA contained"),
  ("Check: four paths add to 100%", f"={R['direct']}+{R['ivr']}+{R['target']}+B{{esc}}", "0.0%", "sum", "must equal 100.0%"),
@@ -103,6 +104,19 @@ for label, f, fmt, key, n in chain: R[key] = r; r += 1
 r -= len(chain)
 for label, f, fmt, key, n in chain:
     ws.cell(r, 1, label); ws.cell(r, 2, f.format(**{k: v for k, v in R.items() if isinstance(v, int)})).number_format = fmt; ws.cell(r, 5, n).font = note; r += 1
+r += 1
+head(r, "Same results in agent-hour equivalents (dollars ÷ agent cost per handle hour)"); r += 1
+hrows = [
+ ("Without AVA, total per month", f"=B{R['total']}/$B${R['rate']}", "h_base"),
+ ("At target, total per month", f"=C{R['total']}/$B${R['rate']}", "h_tgt"),
+ ("Labor saved", f"=B{R['lsaved']}/$B${R['rate']}", "h_lab"),
+ ("IVR fees avoided", f"=B{R['ivrsaved']}/$B${R['rate']}", "h_ivr"),
+ ("AVA cost (per-call + fixed)", f"=B{R['avatot']}/$B${R['rate']}", "h_ava"),
+ ("Net monthly savings", f"=B{R['sav']}/$B${R['rate']}", "h_sav"),
+ ("Net annual savings", f"=B{R['sav']}*12/$B${R['rate']}", "h_year"),
+]
+for label, f, key in hrows:
+    ws.cell(r, 1, label + " (agent hours)"); ws.cell(r, 2, f).number_format = "#,##0.0"; R[key] = r; r += 1
 r += 1
 head(r, "Year by year (containment rises from the target by the yearly increase, capped at the share reaching AVA)"); r += 1
 for i, h in enumerate(["Year", "AVA contained", "FTEs saved", "Net savings that year", "Cumulative"]):
@@ -168,6 +182,7 @@ checks = [
  ("At maximum AVA (all calls reaching AVA contained): only direct calls need FTEs", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']}-0.000000001,0),{C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']})", f"=INDEX(Ladder!E:E,MATCH(ROUND({reach},3),Ladder!A:A,0))", "#,##0.0"),
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
+ ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"={C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']}", "#,##0.0"),
  ("Year 1 = 12 × (monthly savings at target + implementation ÷ months) − implementation", f"=12*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]

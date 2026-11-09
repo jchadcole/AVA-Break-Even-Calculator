@@ -134,6 +134,7 @@ table.year-table { min-width: 460px; margin-top: 6px; }
 .chain .link.end { background: color-mix(in srgb, var(--accent) 12%, var(--bg)); }
 .chain .k { font-size: 12px; color: var(--muted); }
 .chain .v { font: 500 18px var(--f-mono); font-variant-numeric: tabular-nums; }
+.usd { display: block; font-family: var(--f-mono); font-size: 11.5px; font-weight: 400; color: var(--muted); }
 .chain .n { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 .chain .arrow { display: none; }
 .chain .link:not(.end) .k::after { content: " \2192"; }
@@ -351,7 +352,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
           </div>
         </summary>
         <svg id="chart" viewBox="0 0 760 380" role="img" aria-label="Monthly cost versus AVA containment"></svg>
-        <div class="hint">Click or drag on the chart to set the target. The x-axis runs to the share of calls that reach AVA.</div>
+        <div class="hint">Cost is shown in agent-hour equivalents (dollars ÷ <span id="rateHint">cost per agent handle hour</span>). Click or drag on the chart to set the target. The x-axis runs to the share of calls that reach AVA.</div>
       </details>
 
       <section class="panel table-card">
@@ -436,6 +437,14 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
   const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
   const count = v => Math.round(v).toLocaleString("en-US");
   const agentsFmt = v => S.whole ? count(v) : v.toFixed(1);
+  // Hours first, dollars beside: dollar amounts are shown as agent-hour equivalents at the cost per handle hour
+  let RATE = 1;
+  const hrs = (v, compact) => {
+    const h = Math.abs(v) / RATE, sign = v < 0 ? "−" : "";
+    if (compact && h >= 1e4) return sign + (h / 1e3).toFixed(h >= 1e5 ? 0 : 1) + "K hr";
+    return sign + count(h) + " hr";
+  };
+  const dual = (v, compact) => `${hrs(v, compact)} <span class="usd">${money(v, compact)}</span>`;
 
   function fillForm() {
     FIELDS.forEach(id => $(id).value = S[id]);
@@ -511,7 +520,8 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       else reason = "AVA costs more than the agent time it saves, even if it contained every call that reaches it.";
     }
     base.handleHours = (d + r) * N * hrsPerCall;
-    return { d, i, r, perHour, fteHandle, perAgent, costPerCall, N, fixed, base, at, be, reason };
+    const rate = fteHandle > 0 ? S.cost / fteHandle : 0;   // $ per agent handle hour
+    return { d, i, r, perHour, fteHandle, perAgent, costPerCall, rate, N, fixed, base, at, be, reason };
   }
 
   // Flow diagram
@@ -582,13 +592,13 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     const pts = []; let maxY = m.base.total;
     const n = 300;
     for (let k = 0; k <= n; k++) { const p = m.at(r * k / n); pts.push(p); maxY = Math.max(maxY, p.total); }
-    const yMax = niceMax(maxY * 1.06);
+    const yMax = niceMax(maxY / RATE * 1.06) * RATE;  // round ticks in hours
     const x = c => M.l + (c / r) * pw;
     const y = v => M.t + ph - (v / yMax) * ph;
     for (let k = 0; k <= 5; k++) {
       const v = yMax * k / 5, yy = y(v);
       el(chart, "line", { x1: M.l, x2: W - M.r, y1: yy, y2: yy, stroke: "var(--line)", "stroke-width": 1 });
-      el(chart, "text", { x: M.l - 8, y: yy + 4, "text-anchor": "end" }, money(v, true));
+      el(chart, "text", { x: M.l - 8, y: yy + 4, "text-anchor": "end" }, hrs(v, true));
     }
     // x ticks every 5 or 10 points of all-call share
     const stepPts = r > 0.4 ? 0.1 : 0.05;
@@ -617,7 +627,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     el(chart, "path", { d, fill: "none", stroke: "var(--ink)", "stroke-width": 1.4 });
 
     el(chart, "line", { x1: M.l, x2: W - M.r, y1: y(m.base.total), y2: y(m.base.total), stroke: "var(--baseline)", "stroke-width": 2, "stroke-dasharray": "6 4" });
-    el(chart, "text", { x: W - M.r - 4, y: y(m.base.total) - 7, "text-anchor": "end", style: "fill:var(--baseline);font-weight:500" }, "Without AVA (agents + IVR) " + money(m.base.total, true));
+    el(chart, "text", { x: W - M.r - 4, y: y(m.base.total) - 7, "text-anchor": "end", style: "fill:var(--baseline);font-weight:500" }, "Without AVA (agents + IVR) " + hrs(m.base.total, true) + " · " + money(m.base.total, true));
 
     if (m.be !== null) {
       const bx = x(m.be), by = y(m.base.total);
@@ -630,7 +640,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     el(chart, "line", { x1: tx, x2: tx, y1: M.t, y2: M.t + ph, stroke: "var(--ink)", "stroke-width": 1, "stroke-dasharray": "2 3" });
     el(chart, "circle", { cx: tx, cy: y(t.total), r: 4.5, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 2 });
     const right = tx < M.l + pw * 0.6;
-    el(chart, "text", { x: tx + (right ? 8 : -8), y: Math.min(M.t + ph - 8, y(t.total) + 20), "text-anchor": right ? "start" : "end", style: "fill:var(--ink);font-weight:500" }, "Target " + pct(t.c) + " · " + money(t.total, true));
+    el(chart, "text", { x: tx + (right ? 8 : -8), y: Math.min(M.t + ph - 8, y(t.total) + 20), "text-anchor": right ? "start" : "end", style: "fill:var(--ink);font-weight:500" }, "Target " + pct(t.c) + " · " + hrs(t.total, true) + " · " + money(t.total, true));
     el(chart, "line", { x1: M.l, x2: W - M.r, y1: M.t + ph, y2: M.t + ph, stroke: "var(--muted)", "stroke-width": 1 });
   }
   function setTargetFromEvent(ev) {
@@ -699,6 +709,8 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
   let summary = "";
   function render() {
     const m = model();
+    RATE = m.rate || 1;
+    $("rateHint").textContent = "$" + m.rate.toFixed(2) + " per agent handle hour";
     const rPct = Math.round(m.r * 1000) / 10;
     $("target").max = rPct;
     if (S.target > rPct) S.target = rPct;
@@ -713,6 +725,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       ["Handle hours per FTE per month", m.fteHandle.toFixed(1)],
       ["Calls per FTE per month", count(m.perAgent)],
       ["Agent cost per call", "$" + m.costPerCall.toFixed(2)],
+      ["Agent cost per handle hour", "$" + m.rate.toFixed(2)],
       ["Inbound calls per month", count(m.N)],
       ["% of calls reaching AVA", pct(m.r)],
       ["IVR → AVA → Agent % (at target)", pct(t.esc)],
@@ -728,7 +741,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     // Verdict
     if (m.be !== null) {
       $("beNum").className = "be-num"; $("beNum").textContent = pct(m.be);
-      $("beSub").innerHTML = `AVA must contain about <b>${count(m.be * m.N)}</b> calls a month, which is <b>${m.r > 0 ? pct(m.be / m.r) : "–"}</b> of the calls that reach it, before cost drops below the <b>${money(m.base.total)}</b> a month spent without AVA (${money(m.base.agentCost)} agent labor + ${money(m.base.ivr)} IVR).`;
+      $("beSub").innerHTML = `AVA must contain about <b>${count(m.be * m.N)}</b> calls a month, which is <b>${m.r > 0 ? pct(m.be / m.r) : "–"}</b> of the calls that reach it, before cost drops below the <b>${hrs(m.base.total)}</b> (${money(m.base.total)}) a month spent without AVA: ${hrs(m.base.agentCost)} of agent labor plus ${hrs(m.base.ivr)} of IVR fees in agent-hour equivalents.`;
     } else {
       $("beNum").className = "be-num na"; $("beNum").textContent = "Not reachable";
       $("beSub").textContent = m.reason;
@@ -736,8 +749,8 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     const sav = m.base.total - t.total;
     $("targetVal").textContent = pct(t.c);
     $("targetSub").textContent = (m.r > 0 ? pct(t.c / m.r) : "–") + " of calls that reach AVA; " + pct(t.esc) + " of all calls go on to an agent.";
-    $("sMonth").textContent = money(sav, true); $("sMonth").className = "v " + (sav >= 0 ? "pos" : "neg");
-    $("sYear").textContent = money(sav * 12, true); $("sYear").className = "v " + (sav >= 0 ? "pos" : "neg");
+    $("sMonth").innerHTML = dual(sav, true); $("sMonth").className = "v " + (sav >= 0 ? "pos" : "neg");
+    $("sYear").innerHTML = dual(sav * 12, true); $("sYear").className = "v " + (sav >= 0 ? "pos" : "neg");
     $("sAgents").textContent = agentsFmt(t.fteSaved) + " of " + agentsFmt(m.base.agents);
 
     // Hours → FTE → dollars chain
@@ -745,9 +758,9 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     const chain = [
       ["Agent hours automated", count(t.hoursAuto) + " hr", `${count(t.c * m.N)} calls × ${S.aht} sec ÷ 3,600`],
       ["FTEs saved", agentsFmt(t.fteSaved), `÷ ${m.fteHandle.toFixed(1)} handle hr per FTE` + (S.whole ? ", whole people" : "")],
-      ["Labor saved", money(laborSaved), `× ${money(S.cost)} per FTE`],
-      ["AVA cost, net of IVR", (t.ava + t.fixed - (m.base.ivr - t.ivr) < 0 ? "+" : "−") + money(Math.abs(t.ava + t.fixed - (m.base.ivr - t.ivr))), `AVA ${money(t.ava + t.fixed, true)} − IVR fees avoided ${money(m.base.ivr - t.ivr, true)}`],
-      ["Net savings", money(sav), money(sav * 12) + " a year"]
+      ["Labor saved", dual(laborSaved), `${agentsFmt(t.fteSaved)} FTEs × ${m.fteHandle.toFixed(1)} hr (× ${money(S.cost)} per FTE)`],
+      ["AVA cost, net of IVR", dual(-(t.ava + t.fixed - (m.base.ivr - t.ivr))), `AVA ${hrs(t.ava + t.fixed)} − IVR fees avoided ${hrs(m.base.ivr - t.ivr)}`],
+      ["Net savings", dual(sav), hrs(sav * 12) + " (" + money(sav * 12, true) + ") a year"]
     ];
     $("chain").innerHTML = chain.map(([k, v, n], idx) => `<div class="link${idx === chain.length - 1 ? " end" : ""}"><div class="k">${k}</div><div class="v ${idx === chain.length - 1 ? (sav >= 0 ? "pos" : "neg") : ""}">${v}</div><div class="n">${n}</div></div>`).join('<div class="arrow" aria-hidden="true">→</div>');
     const cash = sav + S.impl / S.months;
@@ -767,13 +780,13 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       if (!p.be && !p.tg && points.some(q => (q.be || q.tg) && Math.abs(q.c - p.c) < 1e-6)) return;
       const a = m.at(p.c), s = m.base.total - a.total;
       const label = pct(p.c) + (p.be ? '<span class="tag">break-even</span>' : "") + (p.tg ? '<span class="tag">target</span>' : "");
-      out.push(`<tr class="${p.be ? "be" : ""} ${p.tg ? "tg" : ""}"><td>${label}</td><td>${m.r > 0 ? pct(p.c / m.r) : "–"}</td><td>${count(a.hoursAuto)}</td><td>${agentsFmt(a.fteSaved)}</td><td>${agentsFmt(a.agents)}</td><td>${money(a.total)}</td><td class="${s >= 0 ? "pos" : "neg"}">${money(s)}</td><td class="${s >= 0 ? "pos" : "neg"}">${money(s * 12)}</td></tr>`);
+      out.push(`<tr class="${p.be ? "be" : ""} ${p.tg ? "tg" : ""}"><td>${label}</td><td>${m.r > 0 ? pct(p.c / m.r) : "–"}</td><td>${count(a.hoursAuto)}</td><td>${agentsFmt(a.fteSaved)}</td><td>${agentsFmt(a.agents)}</td><td>${dual(a.total)}</td><td class="${s >= 0 ? "pos" : "neg"}">${dual(s)}</td><td class="${s >= 0 ? "pos" : "neg"}">${dual(s * 12)}</td></tr>`);
     });
     $("ladder").innerHTML = out.join("");
 
     // Detail
     const b = m.base;
-    const drow = (k, x, y, fmt) => { const f = fmt || money; const ch = y - x; return `<tr><td class="lbl">${k}</td><td>${f(x)}</td><td>${f(y)}</td><td class="${ch <= 0 ? "pos" : "neg"}">${ch === 0 ? "–" : (ch > 0 ? "+" : "−") + f(Math.abs(ch))}</td></tr>`; };
+    const drow = (k, x, y, fmt) => { const ch = y - x; const chg = ch === 0 ? "–" : fmt ? (ch > 0 ? "+" : "−") + fmt(Math.abs(ch)) : `${(ch > 0 ? "+" : "") + hrs(ch)} <span class="usd">${(ch > 0 ? "+" : "") + money(ch)}</span>`; const f = fmt || dual; return `<tr><td class="lbl">${k}</td><td>${f(x)}</td><td>${f(y)}</td><td class="${ch <= 0 ? "pos" : "neg"}">${chg}</td></tr>`; };
     $("detail").innerHTML =
       drow("Agent handle hours", b.handleHours, t.handleHours, count) +
       drow("Agent FTEs", b.agents, t.agents, agentsFmt) +
@@ -781,13 +794,14 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       drow("IVR", b.ivr, t.ivr) +
       drow("AVA per-call", 0, t.ava) +
       drow("AVA platform + implementation", 0, t.fixed);
-    $("detailFoot").innerHTML = `<tr><td class="lbl">Total per month</td><td>${money(b.total)}</td><td>${money(t.total)}</td><td class="${sav >= 0 ? "pos" : "neg"}">${(sav >= 0 ? "−" : "+") + money(Math.abs(sav))}</td></tr>`;
+    $("detailFoot").innerHTML = `<tr><td class="lbl">Total per month</td><td>${dual(b.total)}</td><td>${dual(t.total)}</td><td class="${sav >= 0 ? "pos" : "neg"}">${hrs(-sav)} <span class="usd">${money(-sav)}</span></td></tr>`;
 
     const f2 = v => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
     const rawA0 = (m.d + m.r) * m.N / m.perAgent, rawA1 = (m.d + t.esc) * m.N / m.perAgent;
     const avaShare = S.chargeEsc ? m.r : t.c;
     const beFrac = Math.max(0, S.chargeEsc ? (m.r * m.N * (S.avaCost - S.ivrCost) + m.fixed) / (m.N * m.costPerCall) : (m.fixed - m.r * m.N * S.ivrCost) / (m.N * (m.costPerCall - S.avaCost)));
     const steps = [
+      `Agent cost per handle hour = ${money(S.cost)} ÷ ${f2(m.fteHandle)} handle hr per FTE = <b>$${m.rate.toFixed(2)}</b>. Any dollar amount ÷ this = its agent-hour equivalent.`,
       `Handle hours per FTE = ${f2(S.hours)} paid hr × ${S.share}% on these calls × ${S.occ}% occupancy = <b>${f2(m.fteHandle)} hr</b>`,
       `Share reaching AVA = 100% − ${S.direct}% direct − ${S.ivr}% IVR = <b>${pct(m.r)}</b>`,
       `<b>Without AVA.</b> Agent calls = (${S.direct}% + ${pct(m.r)}) × ${count(m.N)} = ${count((m.d + m.r) * m.N)}. Handle hours = ${count((m.d + m.r) * m.N)} × ${f2(S.aht)} sec ÷ 3,600 = ${f2(m.base.handleHours)}. FTEs = ${f2(m.base.handleHours)} ÷ ${f2(m.fteHandle)} = ${f2(rawA0)}${S.whole ? " → rounded up to " + count(m.base.agents) : ""}. Labor = ${agentsFmt(m.base.agents)} × ${money(S.cost)} = ${money(m.base.agentCost)}. IVR = ${pct(1 - m.d)} × ${count(m.N)} × $${S.ivrCost.toFixed(2)} = ${money(m.base.ivr)}. Total = <b>${money(m.base.total)}</b>`,
@@ -796,7 +810,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       `Labor saved = ${agentsFmt(t.fteSaved)} × ${money(S.cost)} = <b>${money(m.base.agentCost - t.agentCost)}</b>`,
       `AVA cost = ${pct(avaShare)} × ${count(m.N)} × $${S.avaCost.toFixed(2)} = ${money(t.ava)}, plus fixed ${money(t.fixed)} = <b>${money(t.ava + t.fixed)}</b>`,
       `IVR fees avoided = ${pct(m.r)} reaching AVA × ${count(m.N)} × $${S.ivrCost.toFixed(2)} = <b>${money(m.base.ivr - t.ivr)}</b>. With AVA only the ${S.ivr}% IVR-contained calls pay the IVR fee: ${money(t.ivr)}`,
-      `Net monthly savings = ${money(m.base.agentCost - t.agentCost)} labor + ${money(m.base.ivr - t.ivr)} IVR avoided − ${money(t.ava + t.fixed)} AVA = <b>${money(sav)}</b> (× 12 = ${money(sav * 12)} a year). Check: ${money(m.base.total)} without AVA − ${money(t.total)} with AVA = ${money(m.base.total - t.total)}`,
+      `Net monthly savings = ${money(m.base.agentCost - t.agentCost)} labor + ${money(m.base.ivr - t.ivr)} IVR avoided − ${money(t.ava + t.fixed)} AVA = <b>${money(sav)}</b> = <b>${hrs(sav)}</b> at $${m.rate.toFixed(2)}/hr (× 12 = ${money(sav * 12)}, ${hrs(sav * 12)} a year). Check: ${money(m.base.total)} without AVA − ${money(t.total)} with AVA = ${money(m.base.total - t.total)}`,
       `Break-even with fractional agents = ` + (S.chargeEsc ? `(${pct(m.r)} × ${count(m.N)} × ($${S.avaCost.toFixed(2)} AVA − $${S.ivrCost.toFixed(2)} IVR) + ${money(m.fixed)}) ÷ (${count(m.N)} × $${m.costPerCall.toFixed(4)})` : `(${money(m.fixed)} − ${pct(m.r)} × ${count(m.N)} × $${S.ivrCost.toFixed(2)}) ÷ (${count(m.N)} × ($${m.costPerCall.toFixed(4)} − $${S.avaCost.toFixed(2)}))`) + ` = <b>${isFinite(beFrac) && beFrac >= 0 && beFrac <= m.r ? pct(beFrac, 2) : "not reachable"}</b>` + (S.whole ? `. With whole agents, savings only appear once a full agent is freed, so the page finds the lowest containment where cost is at or below ${money(m.base.total)}: <b>${m.be !== null ? pct(m.be) : "not reachable"}</b>.` : ".")
     ];
     $("math").innerHTML = steps.map(s => `<li>${s}</li>`).join("");
@@ -810,7 +824,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       "AVA containment break-even",
       `Inbound calls: ${count(m.N)}/month. Direct to agent ${S.direct}%, IVR contained ${S.ivr}%, reaching AVA ${pct(m.r)}`,
       `Agent: $${count(S.cost)}/month loaded, ${S.hours} paid hr/month, ${S.share}% on these calls, ${S.occ}% occupancy, ${S.aht}s call time → ${m.fteHandle.toFixed(1)} handle hr per FTE, $${m.costPerCall.toFixed(2)}/call`,
-      `At target: ${count(t.hoursAuto)} agent hours automated/month = ${agentsFmt(t.fteSaved)} FTEs saved`,
+      `At target: ${count(t.hoursAuto)} agent hours automated/month = ${agentsFmt(t.fteSaved)} FTEs saved; net savings ${hrs(sav)}/month in agent-hour equivalents at $${m.rate.toFixed(2)}/hr`,
       `IVR $${S.ivrCost.toFixed(2)}/call (only calls that never reach AVA), AVA $${S.avaCost.toFixed(2)}/call${S.chargeEsc ? " (charged on escalated calls too)" : ""}`,
       `Without AVA: ${agentsFmt(b.agents)} agents, ${money(b.total)}/month`,
       m.be !== null ? `Break-even AVA containment: ${pct(m.be)} of all calls (${m.r > 0 ? pct(m.be / m.r) : "–"} of AVA calls)` : `Break-even: not reachable. ${m.reason}`,
