@@ -61,6 +61,7 @@ Volume input: calls per month is typed in by default (`mode: "calls"`). The "Fro
 - All colors are CSS tokens on `:root` with dark-mode overrides; keep both themes working and the layout usable at 400px wide.
 - Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v7`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
 - The year-by-year and monthly-cost chart panels are `<details class="fold">` elements that collapse; their open state is saved (`openYears`, `openCost`).
+- The "Executive report" button (header) opens a one-page report overlay built by `buildReport()` from the current inputs: plain-language summary, break-even / target / annual / multi-year KPI tiles, hours automated, FTEs freed, monthly cost before → after, payback, the year-by-year chart (a clone of `#yearChart`) and table, the monthly savings build-up in hours and dollars, the call-path split, key assumptions and a one-line method note. "Print / save as PDF" calls `window.print()`; the `@media print` rules (active while `body.report-open`) print only `#report` on one US Letter page (`@page { size: letter; margin: 0 }`, 8.5in × 11in, 0.42in padding). The yearly table switches to a `dense` style above 8 years so 15 years still fit. Any new metric added to the page should be considered for the report, and the report must still fit on one page.
 - The "Show the math at target" panel prints each step with live numbers. Update it whenever a formula changes.
 
 ## Keep the workbook in sync

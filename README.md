@@ -31,6 +31,7 @@ The comparison point is the same flow with no AVA, where every call that leaves 
 ## Files
 
 - `index.html` is the calculator. It is a single self-contained page; inputs are saved in the viewer's browser.
+- The **Executive report** button opens a one-page summary of the current scenario (break-even, year-by-year savings, savings build-up and assumptions). Use **Print / save as PDF** to export it on a single US Letter page.
 - `ava-break-even-check.xlsx` recomputes everything with visible spreadsheet formulas and runs sanity checks, so results can be validated independently. Regenerate it with `pip install openpyxl && python tools/build_workbook.py` after changing the model.
 - `.cursor/rules/ava-break-even.mdc` gives Cursor the model, formulas and conventions for this project.
 

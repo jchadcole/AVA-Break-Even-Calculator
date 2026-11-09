@@ -176,14 +176,74 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
   .target { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 16px; }
   .field { grid-template-columns: 1fr 108px; }
 }
+
+/* Executive report: one letter page, shown in an overlay and printed on its own */
+.head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.head-row > div { min-width: 0; flex: 1 1 420px; }
+button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); font-weight: 600; padding: 9px 16px; }
+button.primary:hover { color: var(--surface); filter: brightness(1.08); }
+#reportOverlay { position: fixed; inset: 0; z-index: 50; background: color-mix(in srgb, var(--ink) 55%, transparent); overflow: auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 16px) max(16px, env(safe-area-inset-right, 0px)) 32px max(16px, env(safe-area-inset-left, 0px)); }
+.report-toolbar { max-width: 8.5in; margin: 0 auto 12px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.report-toolbar button { background: var(--surface); }
+.report-toolbar button.primary { background: var(--accent); }
+.report-scroll { overflow-x: auto; }
+#report { width: 8.5in; min-height: 11in; margin: 0 auto; background: #fff; color: #15212b; padding: 0.42in 0.5in; box-shadow: 0 8px 30px rgba(0,0,0,.25);
+  font-family: var(--f-body); font-size: 10pt; line-height: 1.4; display: flex; flex-direction: column; gap: 11px; }
+#report * { box-sizing: border-box; }
+.rp-head { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f6e78; padding-bottom: 8px; gap: 12px; }
+.rp-head h1 { font-family: var(--f-display); font-size: 21pt; line-height: 1.05; margin: 0; letter-spacing: -0.01em; }
+.rp-head .sub { color: #5b6b78; font-size: 9.5pt; margin-top: 3px; }
+.rp-head .date { color: #5b6b78; font-size: 9pt; text-align: right; white-space: nowrap; }
+.rp-lede { font-size: 10.5pt; line-height: 1.42; margin: 0; }
+.rp-lede b { color: #0f6e78; }
+.rp-kpis { display: grid; grid-template-columns: 1.25fr 1fr 1fr 1fr; gap: 8px; }
+.rp-kpi { background: #f3f5f7; border-radius: 6px; padding: 7px 10px; display: flex; flex-direction: column; gap: 1px; }
+.rp-kpi.hero { background: #0f6e78; color: #fff; }
+.rp-kpi .k { font-size: 7.5pt; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; opacity: .8; }
+.rp-kpi .v { font-family: var(--f-display); font-weight: 700; font-size: 20pt; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rp-kpi.hero .v { font-size: 26pt; }
+.rp-kpi .n { font-size: 8pt; opacity: .85; }
+.rp-kpis.small .v { font-size: 13pt; }
+.rp-section h2 { font-family: var(--f-display); font-size: 11.5pt; font-weight: 500; margin: 0 0 5px; }
+.rp-two { display: grid; grid-template-columns: 1.25fr 1fr; gap: 16px; align-items: start; }
+.rp-chart svg { width: 100%; height: auto; display: block; }
+.rp-chart svg text { font-family: var(--f-mono); font-size: 14px; fill: #5b6b78; }
+#report table { width: 100%; border-collapse: collapse; font-size: 8.5pt; font-variant-numeric: tabular-nums; }
+#report th, #report td { padding: 3px 5px; white-space: nowrap; text-align: right; border-bottom: 1px solid #d9e0e6; }
+#report th { color: #5b6b78; font-weight: 500; font-size: 7.5pt; }
+#report th:first-child, #report td:first-child { text-align: left; }
+#report td { font-family: var(--f-mono); }
+#report td.l { font-family: var(--f-body); }
+#report table.dense { font-size: 7pt; }
+#report table.dense td, #report table.dense th { padding: 0 4px; line-height: 1.3; }
+#report tr.tot td { font-weight: 600; border-top: 1.5px solid #15212b; border-bottom: 0; }
+#report .pos { color: #1f7a4a; } #report .neg { color: #b8402f; }
+.rp-assume { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 18px; font-size: 8.5pt; }
+.rp-assume div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dotted #d9e0e6; padding: 2px 0; }
+.rp-assume span:first-child { color: #5b6b78; }
+.rp-assume span:last-child { font-family: var(--f-mono); text-align: right; }
+.rp-foot { margin-top: auto; font-size: 7.5pt; color: #5b6b78; border-top: 1px solid #d9e0e6; padding-top: 6px; }
+@page { size: letter; margin: 0; }
+@media print {
+  body.report-open { background: #fff; padding: 0; }
+  body.report-open .wrap, body.report-open .report-toolbar { display: none !important; }
+  body.report-open #reportOverlay { position: static; background: none; padding: 0; overflow: visible; }
+  body.report-open .report-scroll { overflow: visible; }
+  body.report-open #report { box-shadow: none; margin: 0; width: 8.5in; height: 11in; min-height: 0; overflow: hidden;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 </style>
 
 </head>
 <body>
 <div class="wrap">
-  <header>
+  <header class="head-row">
+    <div>
     <h1>AVA containment break-even</h1>
     <p>Inbound calls take one of four paths: direct to an agent, contained in the IVR, contained in AVA, or IVR to AVA to an agent. This finds the share of calls AVA must contain before agent savings cover what AVA costs, and shows savings as containment grows. Values are examples until you replace them.</p>
+    </div>
+    <button type="button" class="primary" id="openReport">Executive report</button>
   </header>
 
   <section class="panel flow-card">
@@ -403,6 +463,14 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
       </details>
     </div>
   </div>
+</div>
+
+<div id="reportOverlay" hidden role="dialog" aria-modal="true" aria-label="Executive report">
+  <div class="report-toolbar">
+    <button type="button" class="primary" id="printReport">Print / save as PDF</button>
+    <button type="button" id="closeReport">Close</button>
+  </div>
+  <div class="report-scroll"><article id="report"></article></div>
 </div>
 
 <script>
@@ -713,6 +781,91 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
   }
 
   let summary = "";
+  let LAST = null;
+
+  // One-page executive report built from the current inputs
+  function buildReport() {
+    const { m, t, sav, yrs } = LAST;
+    const b = m.base, last = yrs[yrs.length - 1];
+    const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    const laborSaved = b.agentCost - t.agentCost, ivrAvoided = b.ivr - t.ivr, avaCost = t.ava + t.fixed;
+    const cash = sav + S.impl / S.months;
+    const payback = S.impl <= 0 ? "No build cost" : cash > 0 ? (S.implMonths + S.impl / cash).toFixed(1) + " months" : "Not reached";
+    const beTxt = m.be !== null ? pct(m.be) : "Not reachable";
+    const lede = m.be !== null
+      ? `AVA pays for itself once it fully resolves <b>${pct(m.be)}</b> of inbound calls (${m.r > 0 ? pct(m.be / m.r) : "–"} of the calls it handles). At the <b>${pct(t.c)}</b> target it takes <b>${count(t.hoursAuto)} agent hours</b> a month off the floor, frees <b>${agentsFmt(t.fteSaved)} FTEs</b> and saves <b>${money(sav * 12, true)} a year</b> at full run rate. With containment rising ${S.growth} points a year and ${S.implMonths} months to implement, savings reach <b>${money(last.cum, true)}</b> over ${S.years} year${S.years > 1 ? "s" : ""}.`
+      : `With these inputs AVA does not break even: ${m.reason}`;
+    const yrRows = yrs.map(r => `<tr><td class="l">Year ${r.y}</td><td>${r.live}</td><td>${pct(r.c)}</td><td>${agentsFmt(r.fteSaved)}</td><td class="${r.net >= 0 ? "pos" : "neg"}">${money(r.net, true)}</td><td class="${r.cum >= 0 ? "pos" : "neg"}">${money(r.cum, true)}</td></tr>`).join("");
+    const h = v => hrs(v), mo = v => money(v);
+    const build = [
+      ["Agent labor saved", laborSaved], ["IVR fees avoided", ivrAvoided], ["AVA fees and platform", -avaCost]
+    ].map(([k, v]) => `<tr><td class="l">${k}</td><td>${(v < 0 ? "" : "+") + h(v)}</td><td>${(v < 0 ? "" : "+") + mo(v)}</td></tr>`).join("");
+    const assume = [
+      ["Inbound calls / month", count(m.N)], ["Direct to agent", S.direct + "%"], ["Contained in IVR", S.ivr + "%"],
+      ["Reaching AVA", pct(m.r)], ["Average call time", S.aht + " sec"], ["Agent occupancy", S.occ + "%"],
+      ["Time on these calls", S.share + "%"], ["Paid hours / FTE / month", S.hours], ["Loaded cost / FTE / month", money(S.cost)],
+      ["Cost per agent handle hour", "$" + m.rate.toFixed(2)], ["IVR fee / call", "$" + S.ivrCost.toFixed(2)], ["AVA fee / call", "$" + S.avaCost.toFixed(2) + (S.chargeEsc ? " (all AVA calls)" : " (contained)")],
+      ["AVA platform / month", money(S.platform)], ["Implementation cost", money(S.impl)], ["Implementation time", S.implMonths + " mo"],
+      ["Containment growth", "+" + S.growth + " pts / yr"], ["FTE staffing", S.whole ? "Whole people" : "Fractional"], ["Agents without AVA", agentsFmt(b.agents)]
+    ].map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join("");
+    const chart = $("yearChart").cloneNode(true);
+    chart.removeAttribute("id");
+    $("report").innerHTML = `
+      <div class="rp-head">
+        <div><h1>AVA self-service business case</h1><div class="sub">Break-even containment and multi-year savings for inbound voice</div></div>
+        <div class="date">${today}</div>
+      </div>
+      <p class="rp-lede">${lede}</p>
+      <div class="rp-kpis">
+        <div class="rp-kpi hero"><span class="k">Break-even containment</span><span class="v">${beTxt}</span><span class="n">of all inbound calls</span></div>
+        <div class="rp-kpi"><span class="k">Target containment</span><span class="v">${pct(t.c)}</span><span class="n">${m.be !== null ? "+" + ((t.c - m.be) * 100).toFixed(1) + " pts above break-even" : "&nbsp;"}</span></div>
+        <div class="rp-kpi"><span class="k">Annual savings</span><span class="v">${money(sav * 12, true)}</span><span class="n">${hrs(sav * 12, true)} at full run rate</span></div>
+        <div class="rp-kpi"><span class="k">${S.years}-year savings</span><span class="v">${money(last.cum, true)}</span><span class="n">cumulative, after implementation</span></div>
+      </div>
+      <div class="rp-kpis small">
+        <div class="rp-kpi"><span class="k">Agent hours automated</span><span class="v">${count(t.hoursAuto)}</span><span class="n">per month at target</span></div>
+        <div class="rp-kpi"><span class="k">FTEs freed</span><span class="v">${agentsFmt(t.fteSaved)} of ${agentsFmt(b.agents)}</span><span class="n">${agentsFmt(t.agents)} still needed</span></div>
+        <div class="rp-kpi"><span class="k">Monthly cost</span><span class="v">${money(b.total, true)} → ${money(t.total, true)}</span><span class="n">${pct(b.total > 0 ? sav / b.total : 0)} lower</span></div>
+        <div class="rp-kpi"><span class="k">Payback</span><span class="v">${payback}</span><span class="n">from contract start</span></div>
+      </div>
+      <div class="rp-section">
+        <h2>Savings year by year</h2>
+        <div class="rp-two">
+          <div class="rp-chart" id="rpChart"></div>
+          <table class="${yrs.length > 8 ? "dense" : ""}"><thead><tr><th>Year</th><th>Months live</th><th>AVA contained</th><th>FTEs freed</th><th>Net savings</th><th>Cumulative</th></tr></thead><tbody>${yrRows}</tbody></table>
+        </div>
+      </div>
+      <div class="rp-two">
+        <div class="rp-section">
+          <h2>Where the monthly savings come from (at ${pct(t.c)})</h2>
+          <table><thead><tr><th></th><th>Agent hours</th><th>Dollars</th></tr></thead><tbody>${build}
+            <tr class="tot"><td class="l">Net savings per month</td><td>${h(sav)}</td><td>${mo(sav)}</td></tr></tbody></table>
+        </div>
+        <div class="rp-section">
+          <h2>How each call is handled</h2>
+          <table><thead><tr><th>Path</th><th>Share</th><th>Calls / month</th></tr></thead><tbody>
+            <tr><td class="l">Direct to agent</td><td>${pct(m.d)}</td><td>${count(m.d * m.N)}</td></tr>
+            <tr><td class="l">Contained in IVR</td><td>${pct(m.i)}</td><td>${count(m.i * m.N)}</td></tr>
+            <tr><td class="l">Contained in AVA</td><td>${pct(t.c)}</td><td>${count(t.c * m.N)}</td></tr>
+            <tr><td class="l">AVA, then agent</td><td>${pct(t.esc)}</td><td>${count(t.esc * m.N)}</td></tr></tbody></table>
+        </div>
+      </div>
+      <div class="rp-section">
+        <h2>Key assumptions</h2>
+        <div class="rp-assume">${assume}</div>
+      </div>
+      <div class="rp-foot">Method: hours automated = AVA-contained calls × call time; FTEs freed = hours ÷ ${m.fteHandle.toFixed(1)} handle hr per FTE; savings = labor freed + IVR fees avoided − AVA fees (calls reaching AVA pay the AVA fee instead of the IVR fee). Break-even = lowest containment where monthly cost ≤ cost without AVA. Year 1 counts ${12 - S.implMonths} months live and the full implementation cost. Hours convert dollars at $${m.rate.toFixed(2)} per handle hour.</div>`;
+    $("rpChart").appendChild(chart);
+  }
+  function openReport() {
+    render(); buildReport();
+    $("reportOverlay").hidden = false; document.body.classList.add("report-open");
+    $("printReport").focus();
+  }
+  function closeReport() {
+    $("reportOverlay").hidden = true; document.body.classList.remove("report-open");
+    $("openReport").focus();
+  }
   function render() {
     const m = model();
     RATE = m.rate || 1;
@@ -826,6 +979,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     drawChart(m);
     const yrs = yearRows(m);
     drawYears(m, yrs);
+    LAST = { m, t, sav, yrs };
 
     summary = [
       "AVA containment break-even",
@@ -857,6 +1011,11 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     catch (e) { btn.textContent = "Copy unavailable here"; }
     setTimeout(() => btn.textContent = "Copy summary", 1800);
   });
+
+  $("openReport").addEventListener("click", openReport);
+  $("closeReport").addEventListener("click", closeReport);
+  $("printReport").addEventListener("click", () => window.print());
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("reportOverlay").hidden) closeReport(); });
 
   fillForm(); render();
 })();
