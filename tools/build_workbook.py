@@ -36,6 +36,7 @@ inputs = [
  ("Spread implementation over (months)", 36, "0", "months"),
  ("Years to show in the year-by-year view (1-15)", 5, "0", "years"),
  ("Containment increase per year (points of all calls)", 0.05, "0.0%", "growth"),
+ ("Implementation time in year 1 (months before AVA is in production)", 3, "0", "implm"),
 ]
 R = {}
 r = 5
@@ -119,7 +120,7 @@ for label, f, key in hrows:
     ws.cell(r, 1, label + " (agent hours)"); ws.cell(r, 2, f).number_format = "#,##0.0"; R[key] = r; r += 1
 r += 1
 head(r, "Year by year (containment rises from the target by the yearly increase, capped at the share reaching AVA)"); r += 1
-for i, h in enumerate(["Year", "AVA contained", "FTEs saved", "Net savings that year", "Cumulative"]):
+for i, h in enumerate(["Year", "AVA contained", "FTEs saved", "Net savings that year", "Cumulative", "Months in production"]):
     ws.cell(r, i + 1, h).font = bold
 r += 1
 R["yfirst"] = r
@@ -134,9 +135,11 @@ for y in range(1, 16):
     ws.cell(rr, 2, f"=IF({show},{cexpr},\"\")").number_format = "0.0%"
     ws.cell(rr, 3, f"=IF({show},$B${R['agents']}-{fte},\"\")").number_format = "#,##0.0"
     cost_with = f"({fte})*{R['cost']}+$C${R['ivrc']}+IF({R['charge']}=1,$B${R['reach']},B{rr})*{R['calls']}*{R['avacost']}+{R['platform']}"
-    ws.cell(rr, 4, f"=IF({show},12*($B${R['total']}-({cost_with}))-IF({y}=1,{R['impl']},0),\"\")").number_format = "$#,##0"
+    live = f"IF({y}=1,12-{R['implm']},12)"
+    ws.cell(rr, 6, f"=IF({show},{live},\"\")")
+    ws.cell(rr, 4, f"=IF({show},{live}*($B${R['total']}-({cost_with}))-IF({y}=1,{R['impl']}+{R['implm']}*{R['platform']},0),\"\")").number_format = "$#,##0"
     ws.cell(rr, 5, f"=IF({show},SUM($D${r}:D{rr}),\"\")").number_format = "$#,##0"
-ws.cell(r + 15, 1, "Each year uses that year's containment for all 12 months. Implementation is charged in full in year 1.").font = Font(italic=True, color="666666")
+ws.cell(r + 15, 1, "Each year uses that year's containment for every month in production. Year 1 counts 12 − implementation months; the platform fee runs all 12. Implementation is charged in full in year 1.").font = Font(italic=True, color="666666")
 r += 17
 head(r, "Break-even AVA containment (% of all calls)"); r += 1
 ws.cell(r, 1, "First 0.1% step at or above break-even (works with or without rounding)")
@@ -183,7 +186,7 @@ checks = [
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
  ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"={C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']}", "#,##0.0"),
- ("Year 1 = 12 × (monthly savings at target + implementation ÷ months) − implementation", f"=12*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}", f"={C}D{R['yfirst']}", "$#,##0"),
+ ("Year 1 = months in production × (monthly savings at target + implementation ÷ months) − implementation − platform fee during implementation", f"=(12-{C}{R['implm']})*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}-{C}{R['implm']}*{C}{R['platform']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]
 for i, (label, exp, got, fmt) in enumerate(checks):

@@ -45,7 +45,7 @@ Break-even: the lowest AVA containment where monthly cost ≤ cost without AVA (
 
 Display units (Chad, 2026-11-09): hours first, dollars beside. Every metric except the year-by-year chart shows agent hours as the main figure with the dollar amount in smaller text (`dual()` / `hrs()` helpers, `.usd` class). Dollar amounts convert to agent-hour equivalents at the agent cost per handle hour, `rate = cost ÷ handle hours per FTE` (default $67.44/hr). The monthly cost chart's y-axis is in agent hours. The year-by-year chart stays in dollars.
 
-Year by year (`yearRows()` / `drawYears()`): for year y = 1…`years` (default 5, max 15), containment = min(r, target + `growth` × (y − 1)), with `growth` in points of all calls per year (default 5). Net savings that year = 12 × (cost without AVA − (cost at that containment − implementation ÷ months)) − implementation in year 1 only, so implementation is charged once up front rather than amortized. The panel also shows a cumulative line and a table.
+Year by year (`yearRows()` / `drawYears()`): for year y = 1…`years` (default 5, max 15), containment = min(r, target + `growth` × (y − 1)), with `growth` in points of all calls per year (default 5). Months in production = 12 − `implMonths` in year 1 (implementation time, default 3, 0–12) and 12 after. Net savings that year = months in production × (cost without AVA − (cost at that containment − implementation ÷ months)) − in year 1 only: implementation cost + `implMonths` × platform fee. So during implementation there are no savings and no AVA per-call fees, the platform fee still runs, and the implementation cost is charged once up front rather than amortized. Implementation payback on the target card = `implMonths` + implementation ÷ monthly savings (counted from contract start). The panel also shows a cumulative line and a table.
 
 Volume input: calls per month is typed in by default (`mode: "calls"`). The "From agent headcount" toggle instead derives calls = FTEs today × calls per FTE ÷ (direct + r).
 
@@ -59,10 +59,10 @@ Volume input: calls per month is typed in by default (`mode: "calls"`). The "Fro
 
 - Keep it a single no-build `index.html`. Load any library only from a pinned CDN URL.
 - All colors are CSS tokens on `:root` with dark-mode overrides; keep both themes working and the layout usable at 400px wide.
-- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v6`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
+- Inputs persist in `localStorage` under a versioned key (`ava-containment-break-even-v7`). Bump the version when defaults or the meaning of a field change so old saved values don't leak in.
 - The year-by-year and monthly-cost chart panels are `<details class="fold">` elements that collapse; their open state is saved (`openYears`, `openCost`).
 - The "Show the math at target" panel prints each step with live numbers. Update it whenever a formula changes.
 
 ## Keep the workbook in sync
 
-Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $911,200 without AVA, 77 FTEs saved, $33,600 IVR fees avoided and $491,960 net monthly savings at 50% AVA containment, break-even 4.10% (whole FTEs). In agent hours: 13,512 hr without AVA, 7,295 hr net monthly savings. Year by year with 5 years and +5 pts/year: $5,903,520 in year 1 and $36,069,600 cumulative by year 5. Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.
+Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $911,200 without AVA, 77 FTEs saved, $33,600 IVR fees avoided and $491,960 net monthly savings at 50% AVA containment, break-even 4.10% (whole FTEs). In agent hours: 13,512 hr without AVA, 7,295 hr net monthly savings. Year by year with 5 years and +5 pts/year: with 3 months of implementation, $4,427,640 in year 1 (9 months in production) and $34,593,720 cumulative by year 5. Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.

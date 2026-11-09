@@ -121,7 +121,7 @@ details.fold > summary h2::before { content: "\25BE"; display: inline-block; wid
 details.fold:not([open]) > summary h2::before { transform: rotate(-90deg); }
 details.fold:not([open]) > summary { margin-bottom: 0; }
 details.fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
-.year-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 22px; margin: 4px 0 8px; }
+.year-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 22px; margin: 4px 0 8px; }
 .year-controls .field { grid-template-columns: 1fr 96px; }
 #yearChart { width: 100%; height: auto; display: block; }
 #yearChart text { font-family: var(--f-mono); font-size: 11px; fill: var(--muted); }
@@ -329,15 +329,19 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
             <label for="growth">Containment increase per year<small>Points of all calls added each year, starting from the target. Capped at the share reaching AVA.</small></label>
             <div class="suffix"><span>pts</span><input type="number" id="growth" min="0" max="100" step="0.5"></div>
           </div>
+          <div class="field">
+            <label for="implMonths">Implementation time in year 1<small>Months before AVA is in production. No savings or AVA per-call fees until then.</small></label>
+            <div class="suffix"><span>mo</span><input type="number" id="implMonths" min="0" max="12" step="1"></div>
+          </div>
         </div>
         <svg id="yearChart" viewBox="0 0 760 320" role="img" aria-label="Net savings by year"></svg>
         <div class="table-scroll">
           <table class="data year-table">
-            <thead><tr><th>Year</th><th>AVA contained<br>(% of all calls)</th><th>FTEs saved</th><th>Net savings</th><th>Cumulative</th></tr></thead>
+            <thead><tr><th>Year</th><th>Months in production</th><th>AVA contained<br>(% of all calls)</th><th>FTEs saved</th><th>Net savings</th><th>Cumulative</th></tr></thead>
             <tbody id="yearBody"></tbody>
           </table>
         </div>
-        <div class="hint">Each year uses that year's containment for all 12 months. Implementation cost is charged in full in year 1 instead of spread across months.</div>
+        <div class="hint">Each year uses that year's containment for every month AVA is in production. Year 1 counts only the months after implementation; the platform fee runs all 12 months. Implementation cost is charged in full in year 1 instead of spread across months.</div>
       </details>
 
       <details class="panel chart-card fold" id="costPanel" open>
@@ -408,10 +412,10 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: true,
     direct: 10, ivr: 20,
     ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
-    target: 50, years: 5, growth: 5, openYears: true, openCost: true
+    target: 50, years: 5, growth: 5, implMonths: 3, openYears: true, openCost: true
   };
-  const KEY = "ava-containment-break-even-v6";
-  const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth"];
+  const KEY = "ava-containment-break-even-v7";
+  const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth", "implMonths"];
   const CHECKS = ["whole", "chargeEsc"];
   let S = load();
 
@@ -455,7 +459,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     FIELDS.forEach(id => S[id] = Math.max(0, num($(id).value)));
     CHECKS.forEach(id => S[id] = $(id).checked);
     S.occ = Math.min(100, Math.max(1, S.occ)); S.share = Math.min(100, Math.max(1, S.share));
-    S.aht = Math.max(1, S.aht); S.hours = Math.max(1, S.hours); S.months = Math.max(1, S.months); S.years = Math.min(15, Math.max(1, Math.round(S.years)));
+    S.aht = Math.max(1, S.aht); S.hours = Math.max(1, S.hours); S.months = Math.max(1, S.months); S.years = Math.min(15, Math.max(1, Math.round(S.years))); S.implMonths = Math.min(12, Math.round(S.implMonths));
     S.direct = Math.min(100, S.direct); S.ivr = Math.min(100 - S.direct, S.ivr);
   }
   function setMode(mode, quiet) {
@@ -664,9 +668,11 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     for (let y = 1; y <= S.years; y++) {
       const p = m.at(S.target / 100 + (S.growth / 100) * (y - 1));
       const monthly = m.base.total - (p.total - amort);   // monthly savings before implementation
-      const net = 12 * monthly - (y === 1 ? S.impl : 0);
+      const live = y === 1 ? 12 - S.implMonths : 12;       // months in production
+      // During implementation: no savings and no AVA per-call fees, but the platform fee still runs
+      const net = live * monthly - (y === 1 ? S.impl + S.implMonths * S.platform : 0);
       cum += net;
-      rows.push({ y, c: p.c, fteSaved: p.fteSaved, net, cum });
+      rows.push({ y, live, c: p.c, fteSaved: p.fteSaved, net, cum });
     }
     return rows;
   }
@@ -703,7 +709,7 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     rows.forEach((r, i) => el(svg, "circle", { cx: cx(i), cy: y(r.cum), r: 4, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 2 }));
     const last = rows[n - 1];
     el(svg, "text", { x: Math.min(cx(n - 1), W2 - M2.r - 4), y: y(last.cum) - 10, "text-anchor": n > 1 ? "end" : "middle", style: "fill:var(--ink);font-weight:500" }, "Cumulative " + money(last.cum, true));
-    $("yearBody").innerHTML = rows.map(r => `<tr><td>Year ${r.y}</td><td>${pct(r.c)}</td><td>${agentsFmt(r.fteSaved)}</td><td class="${r.net >= 0 ? "pos" : "neg"}">${money(r.net)}</td><td class="${r.cum >= 0 ? "pos" : "neg"}">${money(r.cum)}</td></tr>`).join("");
+    $("yearBody").innerHTML = rows.map(r => `<tr><td>Year ${r.y}</td><td>${r.live}</td><td>${pct(r.c)}</td><td>${agentsFmt(r.fteSaved)}</td><td class="${r.net >= 0 ? "pos" : "neg"}">${money(r.net)}</td><td class="${r.cum >= 0 ? "pos" : "neg"}">${money(r.cum)}</td></tr>`).join("");
   }
 
   let summary = "";
@@ -764,7 +770,8 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
     ];
     $("chain").innerHTML = chain.map(([k, v, n], idx) => `<div class="link${idx === chain.length - 1 ? " end" : ""}"><div class="k">${k}</div><div class="v ${idx === chain.length - 1 ? (sav >= 0 ? "pos" : "neg") : ""}">${v}</div><div class="n">${n}</div></div>`).join('<div class="arrow" aria-hidden="true">→</div>');
     const cash = sav + S.impl / S.months;
-    $("sPay").textContent = S.impl <= 0 ? "No build cost" : cash > 0 ? (S.impl / cash).toFixed(1) + " months" : "Never";
+    // Payback counted from contract start: implementation months, then months of savings to recover the build cost
+    $("sPay").textContent = S.impl <= 0 ? "No build cost" : cash > 0 ? (S.implMonths + S.impl / cash).toFixed(1) + " months" : "Never";
 
     // Ladder
     const step = 0.05, out = [];
