@@ -66,4 +66,7 @@ Volume input: calls per month is typed in by default (`mode: "calls"`). The "Fro
 
 ## Keep the workbook in sync
 
+The workbook must stay zero-safe: guard every division ("Spread implementation over" uses MAX(1, months) like the page; rate, reach, calls and the closed form fall back to "n/a"), and check cells use ISNUMBER so text never reads as PASS. Zero inputs (fees, fixed costs, months, calls, agent cost, share reaching AVA) must recalculate with no #DIV/0! or #VALUE! anywhere.
+
+
 Any change to inputs, defaults or formulas in `index.html` must be mirrored in `tools/build_workbook.py`, then regenerate the xlsx (`python tools/build_workbook.py`). With default inputs the page and workbook must agree: $911,200 without AVA, 77 FTEs saved, $33,600 IVR fees avoided and $491,960 net monthly savings at 50% AVA containment, break-even 4.10% (whole FTEs). In agent hours: 13,512 hr without AVA, 7,295 hr net monthly savings. Year by year with 5 years and +5 pts/year: with 3 months of implementation, $4,427,640 in year 1 (9 months in production) and $34,593,720 cumulative by year 5. Recalculate the workbook (e.g. open it in Excel) and confirm every row on the Checks sheet says PASS.

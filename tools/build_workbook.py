@@ -48,7 +48,7 @@ for label, val, fmt, key in inputs:
 r += 1
 head(r, "Calculated values"); r += 1
 calc = [
- ("Inbound calls per month (used)", f"=IF({R['mode']}=2,{R['agentsin']}*B{{peragent}}/({R['direct']}+B{{reach}}),{R['callsin']})", "#,##0.0", "callsused", "mode 1: as entered; mode 2: agent FTEs × calls per FTE ÷ (direct % + % reaching AVA), like the page's headcount mode"),
+ ("Inbound calls per month (used)", f"=IF({R['mode']}=2,IF({R['direct']}+B{{reach}}=0,0,{R['agentsin']}*B{{peragent}}/({R['direct']}+B{{reach}})),{R['callsin']})", "#,##0.0", "callsused", "mode 1: as entered; mode 2: agent FTEs × calls per FTE ÷ (direct % + % reaching AVA), like the page's headcount mode"),
  ("Agent calls per hour", f"=3600/{R['aht']}*{R['occ']}", "0.00", "perhour", "3600 ÷ call time × occupancy"),
  ("Handle hours per FTE per month", f"={R['hours']}*{R['share']}*{R['occ']}", "#,##0.00", "fteh", "paid hours × % on these calls × occupancy"),
  ("Calls per FTE per month", f"=B{{fteh}}*3600/{R['aht']}", "#,##0.0", "peragent", "handle hours per FTE × 3600 ÷ call time"),
@@ -57,7 +57,7 @@ calc = [
  ("% of calls reaching AVA", f"=1-{R['direct']}-{R['ivr']}", "0.0%", "reach", "100% − direct − IVR contained"),
  ("% IVR → AVA → Agent (at target)", f"=B{{reach}}-{R['target']}", "0.0%", "esc", "reaching AVA − AVA contained"),
  ("Check: four paths add to 100%", f"={R['direct']}+{R['ivr']}+{R['target']}+B{{esc}}", "0.0%", "sum", "must equal 100.0%"),
- ("AVA fixed cost per month", f"={R['platform']}+{R['impl']}/{R['months']}", "$#,##0", "fixed", "platform fee + implementation ÷ months"),
+ ("AVA fixed cost per month", f"={R['platform']}+{R['impl']}/MAX(1,{R['months']})", "$#,##0", "fixed", "platform fee + implementation ÷ months"),
 ]
 for label, f, fmt, key, note in calc:
     R[key] = r; r += 1
@@ -112,13 +112,13 @@ for label, f, fmt, key, n in chain:
 r += 1
 head(r, "Same results in agent-hour equivalents (dollars ÷ agent cost per handle hour)"); r += 1
 hrows = [
- ("Without AVA, total per month", f"=B{R['total']}/$B${R['rate']}", "h_base"),
- ("At target, total per month", f"=C{R['total']}/$B${R['rate']}", "h_tgt"),
- ("Labor saved", f"=B{R['lsaved']}/$B${R['rate']}", "h_lab"),
- ("IVR fees avoided", f"=B{R['ivrsaved']}/$B${R['rate']}", "h_ivr"),
- ("AVA cost (per-call + fixed)", f"=B{R['avatot']}/$B${R['rate']}", "h_ava"),
- ("Net monthly savings", f"=B{R['sav']}/$B${R['rate']}", "h_sav"),
- ("Net annual savings", f"=B{R['sav']}*12/$B${R['rate']}", "h_year"),
+ ("Without AVA, total per month", f"=IF($B${R['rate']}=0,\"n/a\",B{R['total']}/$B${R['rate']})", "h_base"),
+ ("At target, total per month", f"=IF($B${R['rate']}=0,\"n/a\",C{R['total']}/$B${R['rate']})", "h_tgt"),
+ ("Labor saved", f"=IF($B${R['rate']}=0,\"n/a\",B{R['lsaved']}/$B${R['rate']})", "h_lab"),
+ ("IVR fees avoided", f"=IF($B${R['rate']}=0,\"n/a\",B{R['ivrsaved']}/$B${R['rate']})", "h_ivr"),
+ ("AVA cost (per-call + fixed)", f"=IF($B${R['rate']}=0,\"n/a\",B{R['avatot']}/$B${R['rate']})", "h_ava"),
+ ("Net monthly savings", f"=IF($B${R['rate']}=0,\"n/a\",B{R['sav']}/$B${R['rate']})", "h_sav"),
+ ("Net annual savings", f"=IF($B${R['rate']}=0,\"n/a\",B{R['sav']}*12/$B${R['rate']})", "h_year"),
 ]
 for label, f, key in hrows:
     ws.cell(r, 1, label + " (agent hours)"); ws.cell(r, 2, f).number_format = "#,##0.0"; R[key] = r; r += 1
@@ -128,7 +128,7 @@ for i, h in enumerate(["Year", "AVA contained", "FTEs saved", "Net savings that 
     ws.cell(r, i + 1, h).font = bold
 r += 1
 R["yfirst"] = r
-amort = f"{R['impl']}/{R['months']}"
+amort = f"{R['impl']}/MAX(1,{R['months']})"
 for y in range(1, 16):
     rr = r + y - 1
     show = f"{y}<={R['years']}"
@@ -147,10 +147,10 @@ ws.cell(r + 15, 1, "Each year uses that year's containment for every month in pr
 r += 17
 head(r, "Break-even AVA containment (% of all calls)"); r += 1
 ws.cell(r, 1, "First 0.1% step at or above break-even (works with or without rounding)")
-ws.cell(r, 2, "=_xlfn.MINIFS(Ladder!A:A,Ladder!H:H,\">=0\")").number_format = "0.0%"; ws.cell(r, 5, "lowest containment in the Ladder sheet with savings ≥ 0").font = Font(italic=True, color="666666"); R["be"] = r; r += 1
-ws.cell(r, 1, "Same, as % of calls reaching AVA"); ws.cell(r, 2, f"=B{R['be']}/B{R['reach']}").number_format = "0.0%"; r += 1
+ws.cell(r, 2, "=IF(COUNTIFS(Ladder!H:H,\">=0\")=0,\"not reachable\",_xlfn.MINIFS(Ladder!A:A,Ladder!H:H,\">=0\"))").number_format = "0.0%"; ws.cell(r, 5, "lowest containment in the Ladder sheet with savings ≥ 0").font = Font(italic=True, color="666666"); R["be"] = r; r += 1
+ws.cell(r, 1, "Same, as % of calls reaching AVA"); ws.cell(r, 2, f"=IF(OR(NOT(ISNUMBER(B{R['be']})),B{R['reach']}=0),\"n/a\",B{R['be']}/B{R['reach']})").number_format = "0.0%"; r += 1
 ws.cell(r, 1, "Closed form, fractional agents (cross-check)")
-ws.cell(r, 2, f"=MAX(0,IF({R['charge']}=1,(B{R['reach']}*{R['calls']}*({R['avacost']}-{R['ivrcost']})+B{R['fixed']})/({R['calls']}*B{R['cpc']}),(B{R['fixed']}-B{R['reach']}*{R['calls']}*{R['ivrcost']})/({R['calls']}*(B{R['cpc']}-{R['avacost']}))))").number_format = "0.00%"
+ws.cell(r, 2, f"=IFERROR(MAX(0,IF({R['charge']}=1,(B{R['reach']}*{R['calls']}*({R['avacost']}-{R['ivrcost']})+B{R['fixed']})/({R['calls']}*B{R['cpc']}),(B{R['fixed']}-B{R['reach']}*{R['calls']}*{R['ivrcost']})/({R['calls']}*(B{R['cpc']}-{R['avacost']})))),\"n/a\")").number_format = "0.00%"
 ws.cell(r, 5, "charged: (AVA calls × AVA cost + fixed) ÷ (calls × agent cost per call); not charged: fixed ÷ (calls × (agent cost per call − AVA cost))").font = Font(italic=True, color="666666"); r += 1
 
 # Ladder
@@ -162,7 +162,7 @@ reach = f"{C}$B${R['reach']}"
 for k in range(0, 1001):
     rr = k + 2
     L.cell(rr, 1, f"=IF({k}/1000<={reach}+0.0000001,{k}/1000,\"\")").number_format = "0.0%"
-    L.cell(rr, 2, f"=IF(A{rr}=\"\",\"\",A{rr}/{reach})").number_format = "0.0%"
+    L.cell(rr, 2, f"=IF(A{rr}=\"\",\"\",IF({reach}=0,\"n/a\",A{rr}/{reach}))").number_format = "0.0%"
     L.cell(rr, 3, f"=IF(A{rr}=\"\",\"\",{reach}-A{rr})").number_format = "0.0%"
     L.cell(rr, 4, f"=IF(A{rr}=\"\",\"\",({C}{R['direct']}+C{rr})*{C}{R['calls']})").number_format = "#,##0"
     L.cell(rr, 5, f"=IF(A{rr}=\"\",\"\",IF({C}{R['whole']}=1,ROUNDUP(D{rr}*{C}{R['aht']}/3600/{C}$B${R['fteh']}-0.000000001,0),D{rr}*{C}{R['aht']}/3600/{C}$B${R['fteh']}))").number_format = "#,##0.00"
@@ -184,23 +184,23 @@ checks = [
  ("Four paths add to 100%", "=1", f"={C}B{R['sum']}", "0.0%"),
  ("At 0% AVA: FTEs equal FTEs without AVA", f"={C}B{R['agents']}", f"={lad('E', '0')}", "#,##0.0"),
  ("At 0% AVA: savings = IVR fees avoided − (AVA per-call cost + fixed) when AVA is charged on escalations", f"={reach}*{C}{R['calls']}*{C}{R['ivrcost']}-(IF({C}{R['charge']}=1,{reach}*{C}{R['calls']}*{C}{R['avacost']},0)+{C}B{R['fixed']})", f"={lad('H', '0')}", "$#,##0"),
- ("At break-even: savings are zero or slightly positive", "≥ 0", f"={lad('H', C + 'B' + str(R['be']))}", "$#,##0"),
- ("One step (0.1%) below break-even: savings are negative", "< 0", f"=IF({C}B{R['be']}=0,\"n/a\",{lad('H', C + 'B' + str(R['be']) + '-0.001')})", "$#,##0"),
+ ("At break-even: savings are zero or slightly positive", "≥ 0", f"=IFERROR({lad('H', C + 'B' + str(R['be']))},\"n/a\")", "$#,##0"),
+ ("One step (0.1%) below break-even: savings are negative", "< 0", f"=IFERROR(IF({C}B{R['be']}=0,\"n/a\",{lad('H', C + 'B' + str(R['be']) + '-0.001')}),\"n/a\")", "$#,##0"),
  ("At maximum AVA (all calls reaching AVA contained): only direct calls need FTEs", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']}-0.000000001,0),{C}{R['direct']}*{C}{R['calls']}*{C}{R['aht']}/3600/{C}B{R['fteh']})", f"=INDEX(Ladder!E:E,MATCH(ROUND({reach},3),Ladder!A:A,0))", "#,##0.0"),
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
- ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"={C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']}", "#,##0.0"),
- ("Headcount mode: FTEs without AVA = agent FTEs entered (n/a unless mode = 2; rounding up applies)", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['agentsin']}-0.000000001,0),{C}{R['agentsin']})", f"=IF({C}{R['mode']}=2,{C}B{R['agents']},\"set mode to 2\")", "#,##0.0"),
- ("Year 1 = months in production × (monthly savings at target + implementation ÷ months) − implementation − platform fee during implementation", f"=(12-{C}{R['implm']})*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}-{C}{R['implm']}*{C}{R['platform']}", f"={C}D{R['yfirst']}", "$#,##0"),
+ ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"=IFERROR({C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']},\"n/a\")", "#,##0.0"),
+ ("Headcount mode: FTEs without AVA = agent FTEs entered (n/a unless mode = 2; rounding up applies)", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['agentsin']}-0.000000001,0),{C}{R['agentsin']})", f"=IF({C}{R['mode']}<>2,\"set mode to 2\",IF({C}{R['direct']}+{C}B{R['reach']}=0,\"no agent calls\",{C}B{R['agents']}))", "#,##0.0"),
+ ("Year 1 = months in production × (monthly savings at target + implementation ÷ months) − implementation − platform fee during implementation", f"=(12-{C}{R['implm']})*({C}B{R['sav']}+{C}{R['impl']}/MAX(1,{C}{R['months']}))-{C}{R['impl']}-{C}{R['implm']}*{C}{R['platform']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]
 for i, (label, exp, got, fmt) in enumerate(checks):
     rr = i + 2; K.cell(rr, 1, label)
     K.cell(rr, 2, exp).number_format = fmt; K.cell(rr, 3, got).number_format = fmt
-    if exp == "≥ 0": K.cell(rr, 4, f"=IF(C{rr}>=0,\"PASS\",\"FAIL\")")
-    elif exp == "< 0": K.cell(rr, 4, f"=IF(C{rr}=\"n/a\",\"n/a\",IF(C{rr}<0,\"PASS\",\"FAIL\"))")
+    if exp == "≥ 0": K.cell(rr, 4, f"=IF(ISNUMBER(C{rr}),IF(C{rr}>=0,\"PASS\",\"FAIL\"),\"n/a\")")
+    elif exp == "< 0": K.cell(rr, 4, f"=IF(ISNUMBER(C{rr}),IF(C{rr}<0,\"PASS\",\"FAIL\"),\"n/a\")")
     elif "rounding" in label or "Fractional" in label: K.cell(rr, 4, f"=IF(ISNUMBER(C{rr}),IF(ABS(B{rr}-C{rr})<0.01,\"PASS\",\"FAIL\"),\"n/a\")")
-    else: K.cell(rr, 4, f"=IF(ABS(B{rr}-C{rr})<0.01,\"PASS\",\"FAIL\")")
+    else: K.cell(rr, 4, f"=IF(AND(ISNUMBER(B{rr}),ISNUMBER(C{rr})),IF(ABS(B{rr}-C{rr})<0.01,\"PASS\",\"FAIL\"),\"n/a\")")
 K.cell(len(checks) + 3, 1, "The 0%-AVA savings check assumes 0% AVA leaves agents unchanged, which holds because both sides then route the same calls to agents.").font = Font(italic=True, color="666666")
 import os
 wb.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ava-break-even-check.xlsx"))
