@@ -18,7 +18,9 @@ ws["A1"] = "AVA containment break-even: validation workbook"; ws["A1"].font = Fo
 ws["A2"] = "Blue cells are inputs. Every other number is a formula you can inspect. Enter the same inputs as the web page and compare."
 head(4, "Supplied values (monthly basis)")
 inputs = [
- ("Inbound calls per month", 96000, "#,##0", "calls"),
+ ("Volume input mode (1 = enter calls per month, 2 = enter agent FTEs today)", 1, "0", "mode"),
+ ("Inbound calls per month (used when mode = 1)", 96000, "#,##0", "callsin"),
+ ("Agent FTEs today (used when mode = 2)", 100, "#,##0.0", "agentsin"),
  ("Fully loaded agent cost (per agent, per month)", 7000, "$#,##0", "cost"),
  ("Agent occupancy rate", 0.80, "0.0%", "occ"),
  ("Average call time (sec)", 600, "#,##0", "aht"),
@@ -46,6 +48,7 @@ for label, val, fmt, key in inputs:
 r += 1
 head(r, "Calculated values"); r += 1
 calc = [
+ ("Inbound calls per month (used)", f"=IF({R['mode']}=2,{R['agentsin']}*B{{peragent}}/({R['direct']}+B{{reach}}),{R['callsin']})", "#,##0.0", "callsused", "mode 1: as entered; mode 2: agent FTEs × calls per FTE ÷ (direct % + % reaching AVA), like the page's headcount mode"),
  ("Agent calls per hour", f"=3600/{R['aht']}*{R['occ']}", "0.00", "perhour", "3600 ÷ call time × occupancy"),
  ("Handle hours per FTE per month", f"={R['hours']}*{R['share']}*{R['occ']}", "#,##0.00", "fteh", "paid hours × % on these calls × occupancy"),
  ("Calls per FTE per month", f"=B{{fteh}}*3600/{R['aht']}", "#,##0.0", "peragent", "handle hours per FTE × 3600 ÷ call time"),
@@ -62,6 +65,7 @@ r -= len(calc)
 for label, f, fmt, key, note in calc:
     ws.cell(r, 1, label); c = ws.cell(r, 2, f.format(**{k: v for k, v in R.items() if isinstance(v, int)})); c.number_format = fmt; ws.cell(r, 5, note).font = Font(italic=True, color="666666"); r += 1
 r += 1
+R["calls"] = f"$B${R['callsused']}"   # every later formula uses the calls actually in use
 head(r, "Monthly cost comparison"); ws.cell(r, 2, "Without AVA").font = hdr; ws.cell(r, 3, "At target").font = hdr; ws.cell(r, 4, "Change").font = hdr; r += 1
 def ag(hours_expr):
     return f"=IF({R['whole']}=1,ROUNDUP({hours_expr}/$B${R['fteh']}-0.000000001,0),{hours_expr}/$B${R['fteh']})"
@@ -186,6 +190,7 @@ checks = [
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
  ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"={C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']}", "#,##0.0"),
+ ("Headcount mode: FTEs without AVA = agent FTEs entered (n/a unless mode = 2; rounding up applies)", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['agentsin']}-0.000000001,0),{C}{R['agentsin']})", f"=IF({C}{R['mode']}=2,{C}B{R['agents']},\"set mode to 2\")", "#,##0.0"),
  ("Year 1 = months in production × (monthly savings at target + implementation ÷ months) − implementation − platform fee during implementation", f"=(12-{C}{R['implm']})*({C}B{R['sav']}+{C}{R['impl']}/{C}{R['months']})-{C}{R['impl']}-{C}{R['implm']}*{C}{R['platform']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]
