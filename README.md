@@ -31,7 +31,7 @@ The comparison point is the same flow with no AVA, where every call that leaves 
 ## Files
 
 - `index.html` is the calculator. It is a single self-contained page; inputs are saved in the viewer's browser.
-- The **Executive report** button opens a one-page summary of the current scenario (break-even, year-by-year savings, savings build-up and assumptions). Use **Print / save as PDF** to export it on a single US Letter page.
+- The **Executive report** button opens a two-page report of the current scenario. Page 1 is a short value statement (multi-year savings headline, annual savings, FTEs freed, payback, and a bar showing break-even against the target). Page 2 holds the supporting details (break-even, year-by-year savings, savings build-up, call paths, assumptions and method). Use **Print / save as PDF** to export both pages on US Letter.
 - `ava-break-even-check.xlsx` recomputes everything with visible spreadsheet formulas and runs sanity checks, so results can be validated independently. Like the page, it supports either input: set the volume input mode to 1 to enter calls per month, or 2 to enter agent FTEs today. Regenerate it with `pip install openpyxl && python tools/build_workbook.py` after changing the model.
 - `customer-data-gathering.docx` is a customer-facing Word form that collects every calculator input (call volume or agents, call paths, agent cost and time, fees, fixed costs, rollout and goals), with a description, where to find it and an example for each. Regenerate it with `npm install docx && node tools/build_intake_form.js`.
 - `.cursor/rules/ava-break-even.mdc` gives Cursor the model, formulas and conventions for this project.
