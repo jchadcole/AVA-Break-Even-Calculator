@@ -310,6 +310,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     <select id="scenSel"></select>
     <span class="state" id="scenState"></span>
     <div class="grp">
+      <button type="button" id="scenNew">New</button>
       <button type="button" id="scenSave">Save</button>
       <button type="button" id="scenSaveAs">Save as…</button>
       <button type="button" id="scenRename">Rename</button>
@@ -1324,6 +1325,12 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     CUR = n; storeScen();
     if (n) { applyInputs(SCEN[n]); flash(`Loaded "${n}"`); }
     scenUI();
+  });
+  // New: start an untitled scenario from the default values; saved scenarios are untouched
+  $("scenNew").addEventListener("click", () => {
+    const unsaved = CUR ? !same(SCEN[CUR], snap()) : !same(snapOf(DEFAULTS), snap());
+    if (unsaved && !confirm(CUR ? `"${CUR}" has unsaved changes. Start a new scenario anyway? Your saved scenarios are not affected.` : "The inputs on screen are not saved. Start a new scenario anyway?")) return;
+    CUR = ""; storeScen(); applyInputs({}); scenUI(); flash("New scenario with default values");
   });
   $("scenSave").addEventListener("click", () => {
     if (!CUR) { const n = askName(); if (!n) return; CUR = n; }
