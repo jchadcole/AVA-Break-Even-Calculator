@@ -178,6 +178,14 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
 }
 
 /* Executive report: two letter pages (value statement, supporting details), shown in an overlay and printed on their own */
+/* Saved scenarios bar */
+.scen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.scen label { font-weight: 600; font-size: 13px; }
+.scen select { font: 500 13px var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; max-width: 100%; flex: 0 1 260px; }
+.scen .grp { display: flex; flex-wrap: wrap; gap: 6px; }
+.scen .state { font-size: 12px; color: var(--muted); min-width: 0; }
+.scen .state.dirty { color: var(--ink); }
+.scen .msg { font-size: 12px; color: var(--accent); margin-left: auto; }
 .head-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .head-row > div { min-width: 0; flex: 1 1 420px; }
 button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); font-weight: 600; padding: 9px 16px; }
@@ -268,6 +276,24 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     </div>
     <button type="button" class="primary" id="openReport">Executive report</button>
   </header>
+  <div class="scen" role="group" aria-label="Saved scenarios">
+    <label for="scenSel">Scenario</label>
+    <select id="scenSel"></select>
+    <span class="state" id="scenState"></span>
+    <div class="grp">
+      <button type="button" id="scenSave">Save</button>
+      <button type="button" id="scenSaveAs">Save as…</button>
+      <button type="button" id="scenRename">Rename</button>
+      <button type="button" id="scenDelete">Delete</button>
+    </div>
+    <div class="grp">
+      <button type="button" id="scenExport">Export</button>
+      <button type="button" id="scenImport">Import</button>
+      <button type="button" id="scenLink">Copy link</button>
+      <input type="file" id="scenFile" accept=".json,application/json" hidden>
+    </div>
+    <span class="msg" id="scenMsg" aria-live="polite"></span>
+  </div>
 
   <section class="panel flow-card">
     <div class="card-head"><h2>Call flow at target containment</h2><span class="hint" id="flowBasis"></span></div>
@@ -528,7 +554,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     } catch (e) {}
     return Object.assign({}, DEFAULTS);
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} try { scenUI(); } catch (e) {} }
 
   const $ = id => document.getElementById(id);
   const num = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
@@ -544,6 +570,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     return sign + "$" + Math.round(a).toLocaleString("en-US");
   };
   const pct = (v, d = 1) => (v * 100).toFixed(d) + "%";
+  const escHtml = t => String(t).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const count = v => Math.round(v).toLocaleString("en-US");
   const agentsFmt = v => S.whole ? count(v) : v.toFixed(1);
   // Hours first, dollars beside: dollar amounts are shown as agent-hour equivalents at the cost per handle hour
@@ -867,7 +894,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     </svg>`;
     const page1 = `
       <section class="rp-page value">
-        ${head("AVA self-service business case", "Inbound voice · executive summary")}
+        ${head("AVA self-service business case", (CUR ? escHtml(CUR) + " · " : "") + "Inbound voice · executive summary")}
         <div class="rp-eyebrow">The value</div>
         <h2 class="rp-headline">${headline}</h2>
         <p class="rp-value">${value}</p>
@@ -904,7 +931,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     ].map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join("");
     const page2 = `
       <section class="rp-page details">
-        ${head("Supporting details", "For reference · figures behind the summary")}
+        ${head("Supporting details", (CUR ? escHtml(CUR) + " · " : "") + "For reference · figures behind the summary")}
         <div class="rp-kpis">
           <div class="rp-kpi hero"><span class="k">Break-even containment</span><span class="v">${beTxt}</span><span class="n">of all inbound calls${m.be !== null && m.r > 0 ? ` (${pct(m.be / m.r)} of AVA calls)` : ""}</span></div>
           <div class="rp-kpi"><span class="k">Target containment</span><span class="v">${pct(t.c)}</span><span class="n">${m.r > 0 ? pct(t.c / m.r) + " of AVA calls" : "&nbsp;"}</span></div>
@@ -1100,12 +1127,116 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     setTimeout(() => btn.textContent = "Copy summary", 1800);
   });
 
+  // ---------- Saved scenarios (kept in this browser; export/import or a link moves them elsewhere)
+  const SCEN_KEY = "ava-break-even-scenarios", CUR_KEY = "ava-break-even-scenario-current";
+  const SCEN_FIELDS = ["mode", "target", ...FIELDS, ...CHECKS];
+  let SCEN = {}, CUR = "";
+  try { SCEN = JSON.parse(localStorage.getItem(SCEN_KEY)) || {}; } catch (e) { SCEN = {}; }
+  try { CUR = localStorage.getItem(CUR_KEY) || ""; } catch (e) { CUR = ""; }
+  if (!SCEN[CUR]) CUR = "";
+  const snap = () => { const o = {}; SCEN_FIELDS.forEach(k => o[k] = S[k]); return o; };
+  const same = (a, b) => SCEN_FIELDS.every(k => String(a[k]) === String(b[k]));
+  function storeScen() {
+    try { localStorage.setItem(SCEN_KEY, JSON.stringify(SCEN)); localStorage.setItem(CUR_KEY, CUR); } catch (e) {}
+  }
+  let msgTimer;
+  function flash(t) { $("scenMsg").textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => $("scenMsg").textContent = "", 4000); }
+  function applyInputs(o) {
+    // Unknown or missing fields fall back to defaults; layout preferences (open panels) are kept
+    const keep = { openYears: S.openYears, openCost: S.openCost };
+    S = Object.assign({}, DEFAULTS, keep);
+    SCEN_FIELDS.forEach(k => { if (o && o[k] !== undefined) S[k] = o[k]; });
+    fillForm(); render(); save();
+  }
+  function scenUI() {
+    const names = Object.keys(SCEN).sort((a, b) => a.localeCompare(b));
+    $("scenSel").innerHTML = `<option value="">Unsaved scenario</option>` + names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join("");
+    $("scenSel").value = CUR;
+    const dirty = CUR && !same(SCEN[CUR], snap());
+    $("scenState").textContent = !CUR ? (names.length ? "" : "Save these inputs to recall them later.") : dirty ? "Unsaved changes" : "Saved";
+    $("scenState").classList.toggle("dirty", !!dirty);
+    $("scenRename").disabled = $("scenDelete").disabled = !CUR;
+  }
+  function askName(def) {
+    const n = (prompt("Scenario name (for example, the customer and version):", def || "") || "").trim();
+    if (!n) return null;
+    if (SCEN[n] && n !== CUR && !confirm(`A scenario named "${n}" already exists. Replace it?`)) return null;
+    return n.slice(0, 80);
+  }
+  $("scenSel").addEventListener("change", e => {
+    const n = e.target.value;
+    if (CUR && !same(SCEN[CUR], snap()) && !confirm(`"${CUR}" has unsaved changes. Switch anyway?`)) { e.target.value = CUR; return; }
+    CUR = n; storeScen();
+    if (n) { applyInputs(SCEN[n]); flash(`Loaded "${n}"`); }
+    scenUI();
+  });
+  $("scenSave").addEventListener("click", () => {
+    if (!CUR) { const n = askName(); if (!n) return; CUR = n; }
+    SCEN[CUR] = snap(); storeScen(); scenUI(); flash(`Saved "${CUR}"`);
+  });
+  $("scenSaveAs").addEventListener("click", () => {
+    const n = askName(CUR ? CUR + " (copy)" : ""); if (!n) return;
+    CUR = n; SCEN[n] = snap(); storeScen(); scenUI(); flash(`Saved "${n}"`);
+  });
+  $("scenRename").addEventListener("click", () => {
+    if (!CUR) return;
+    const n = askName(CUR); if (!n || n === CUR) return;
+    SCEN[n] = SCEN[CUR]; delete SCEN[CUR]; CUR = n; storeScen(); scenUI(); flash(`Renamed to "${n}"`);
+  });
+  $("scenDelete").addEventListener("click", () => {
+    if (!CUR || !confirm(`Delete the scenario "${CUR}"? The inputs on screen stay as they are.`)) return;
+    delete SCEN[CUR]; const n = CUR; CUR = ""; storeScen(); scenUI(); flash(`Deleted "${n}"`);
+  });
+  $("scenExport").addEventListener("click", () => {
+    const all = Object.assign({}, SCEN);
+    if (!CUR) all["Unsaved scenario " + new Date().toISOString().slice(0, 10)] = snap();
+    const blob = new Blob([JSON.stringify({ app: "ava-break-even", version: 1, exported: new Date().toISOString(), scenarios: all }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = "ava-break-even-scenarios.json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    flash(`Exported ${Object.keys(all).length} scenario${Object.keys(all).length === 1 ? "" : "s"}`);
+  });
+  $("scenImport").addEventListener("click", () => $("scenFile").click());
+  $("scenFile").addEventListener("change", async e => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    try {
+      const data = JSON.parse(await f.text());
+      const list = data && data.scenarios && typeof data.scenarios === "object" ? data.scenarios : null;
+      if (!list) throw new Error("no scenarios");
+      const names = Object.keys(list).filter(n => list[n] && typeof list[n] === "object");
+      const clash = names.filter(n => SCEN[n]);
+      if (clash.length && !confirm(`${clash.length} scenario${clash.length === 1 ? "" : "s"} with the same name will be replaced (${clash.slice(0, 3).join(", ")}${clash.length > 3 ? "…" : ""}). Continue?`)) return;
+      names.forEach(n => { const o = {}; SCEN_FIELDS.forEach(k => { if (list[n][k] !== undefined) o[k] = list[n][k]; }); SCEN[n.slice(0, 80)] = Object.assign(snapOf(DEFAULTS), o); });
+      storeScen(); scenUI(); flash(`Imported ${names.length} scenario${names.length === 1 ? "" : "s"}`);
+    } catch (err) { alert("That file isn't a scenario export from this tool."); }
+  });
+  function snapOf(src) { const o = {}; SCEN_FIELDS.forEach(k => o[k] = src[k]); return o; }
+  // Share link: the inputs travel in the URL after #, so nothing is sent to a server
+  $("scenLink").addEventListener("click", async () => {
+    const payload = { n: CUR || "", i: snap() };
+    const url = location.href.split("#")[0] + "#s=" + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+    try { await navigator.clipboard.writeText(url); flash("Link copied. Anyone who opens it sees these inputs."); }
+    catch (e) { prompt("Copy this link:", url); }
+  });
+  function readLink() {
+    const m = location.hash.match(/^#s=(.+)$/); if (!m) return false;
+    try {
+      const p = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+      if (!p || typeof p.i !== "object") return false;
+      CUR = ""; applyInputs(p.i);
+      history.replaceState(null, "", location.pathname + location.search);
+      flash(p.n ? `Opened "${p.n}" from a link. Save it to keep it.` : "Opened inputs from a link. Save them to keep them.");
+      return true;
+    } catch (e) { return false; }
+  }
+
   $("openReport").addEventListener("click", openReport);
   $("closeReport").addEventListener("click", closeReport);
   $("printReport").addEventListener("click", () => window.print());
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("reportOverlay").hidden) closeReport(); });
 
   fillForm(); render();
+  readLink(); scenUI();
 })();
 </script>
 </body>
