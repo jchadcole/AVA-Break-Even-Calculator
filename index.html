@@ -287,7 +287,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
           <input type="number" id="calls" min="0" step="1000">
         </div>
         <div class="field" id="rowAgents">
-          <label for="agents">Agent FTEs today<small>FTEs needed without AVA. Calculated from calls, or switch above to enter headcount.</small></label>
+          <label for="agents">Agent FTEs today<small>The whole team, including time on other work. Calculated from calls, or switch above to enter headcount.</small></label>
           <input type="number" id="agents" min="0" step="1">
         </div>
       </fieldset>
@@ -311,7 +311,11 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
           <div class="suffix"><span>hr</span><input type="number" id="hours" min="1" step="1"></div>
         </div>
         <div class="field">
-          <label for="share">% of agent time on these calls<small>Paid time logged in to this queue. The rest is breaks, training, meetings, other work.</small></label>
+          <label for="shrink">Shrinkage<small>Paid time not available for any work: breaks, training, meetings, coaching, time off.</small></label>
+          <div class="suffix"><span>%</span><input type="number" id="shrink" min="0" max="90" step="1"></div>
+        </div>
+        <div class="field">
+          <label for="share">% of working time on these calls<small>The rest is other tasks (email, back office) that AVA does not remove. Only used to turn headcount into calls; savings count only the call hours AVA takes over.</small></label>
           <div class="suffix"><span>%</span><input type="number" id="share" min="1" max="100" step="1"></div>
         </div>
         <label class="check"><input type="checkbox" id="whole"><span>Round FTEs up to whole people<small>Off: fractional FTEs. On: savings arrive one person at a time.</small></span></label>
@@ -472,14 +476,14 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
       <details class="panel">
         <summary>How it is calculated</summary>
         <ul>
-          <li>Handle hours per FTE per month = <code>paid hours × % of time on these calls × occupancy</code>. This is the time one FTE actually spends talking to callers.</li>
+          <li>Handle hours per FTE per month = <code>paid hours × (1 − shrinkage) × occupancy</code>. This is the call time one FTE delivers. Time agents spend on other tasks is left out: automating calls frees only the hours of call work, and the other work still needs doing.</li>
           <li>Agent hours automated = <code>calls contained in AVA × average call time ÷ 3600</code></li>
           <li>FTEs saved = <code>agent hours automated ÷ handle hours per FTE</code></li>
           <li>Labor saved = <code>FTEs saved × fully loaded agent cost</code></li>
           <li>IVR fees avoided = <code>calls reaching AVA × IVR cost per call</code> (those calls now pay the AVA fee instead)</li>
           <li>Net savings = <code>labor saved + IVR fees avoided − AVA per-call cost − AVA platform fee − implementation ÷ months</code></li>
           <li>FTEs needed for non-automated calls = <code>(direct % + IVR → AVA → Agent %) × calls × call time ÷ 3600 ÷ handle hours per FTE</code>, rounded up when rounding to whole people.</li>
-          <li>From headcount: inbound calls = <code>FTEs today × handle hours per FTE × 3600 ÷ call time ÷ (direct % + % reaching AVA)</code></li>
+          <li>From headcount: inbound calls = <code>FTEs today × % of working time on these calls × handle hours per FTE × 3600 ÷ call time ÷ (direct % + % reaching AVA)</code>. All FTE figures in the results are FTEs of call work.</li>
           <li>Agent calls per hour = <code>3600 ÷ call time × occupancy</code>; agent cost per call = <code>agent cost ÷ (handle hours per FTE × 3600 ÷ call time)</code></li>
         </ul>
         <p>The comparison point is the same flow without AVA, where every call that leaves the IVR goes to an agent. Break-even is the lowest AVA containment where monthly cost is at or below that figure. A call is billed once for automation: IVR-contained calls pay the IVR fee; calls that reach AVA pay the AVA fee instead of the IVR fee (plus agent time if they escalate). Without AVA, calls that leave the IVR for an agent pay the IVR fee. So AVA's real added cost per call is the AVA fee minus the IVR fee it replaces.</p>
@@ -500,18 +504,23 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
 (function () {
   const DEFAULTS = {
     mode: "calls", agents: 100, calls: 96000,
-    cost: 7000, occ: 80, aht: 600, hours: 173, share: 75, whole: true,
+    cost: 7000, occ: 80, aht: 600, hours: 173, shrink: 25, share: 100, whole: true,
     direct: 10, ivr: 20,
     ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
     target: 50, years: 5, growth: 5, implMonths: 3, openYears: true, openCost: true
   };
-  const KEY = "ava-containment-break-even-v7";
-  const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth", "implMonths"];
+  const KEY = "ava-containment-break-even-v8", OLD_KEY = "ava-containment-break-even-v7";
+  const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "shrink", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth", "implMonths"];
   const CHECKS = ["whole", "chargeEsc"];
   let S = load();
 
   function load() {
     try { const o = JSON.parse(localStorage.getItem(KEY)); if (o && typeof o === "object") return Object.assign({}, DEFAULTS, o); } catch (e) {}
+    // v7 had one "% of agent time on these calls" field; carry it over as shrinkage so saved results don't change
+    try {
+      const o = JSON.parse(localStorage.getItem(OLD_KEY));
+      if (o && typeof o === "object") { const s = Object.assign({}, DEFAULTS, o); s.shrink = Math.max(0, 100 - (o.share ?? 75)); s.share = 100; return s; }
+    } catch (e) {}
     return Object.assign({}, DEFAULTS);
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }
@@ -549,7 +558,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   function readForm() {
     FIELDS.forEach(id => S[id] = Math.max(0, num($(id).value)));
     CHECKS.forEach(id => S[id] = $(id).checked);
-    S.occ = Math.min(100, Math.max(1, S.occ)); S.share = Math.min(100, Math.max(1, S.share));
+    S.occ = Math.min(100, Math.max(1, S.occ)); S.share = Math.min(100, Math.max(1, S.share)); S.shrink = Math.min(90, S.shrink);
     S.aht = Math.max(1, S.aht); S.hours = Math.max(1, S.hours); S.months = Math.max(1, S.months); S.years = Math.min(15, Math.max(1, Math.round(S.years))); S.implMonths = Math.min(12, Math.round(S.implMonths));
     S.direct = Math.min(100, S.direct); S.ivr = Math.min(100 - S.direct, S.ivr);
   }
@@ -567,12 +576,15 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     const d = S.direct / 100, i = S.ivr / 100;
     const r = Math.max(0, 1 - d - i);                 // share reaching AVA
     const perHour = 3600 / S.aht * (S.occ / 100);       // agent calls per hour
-    const fteHandle = S.hours * (S.share / 100) * (S.occ / 100); // handle hours per FTE per month
+    // Handle hours one FTE spends on calls if it worked only on calls. Shrinkage applies to every task;
+    // time on other tasks is NOT in here, because automating calls doesn't remove that work.
+    const fteHandle = S.hours * (1 - S.shrink / 100) * (S.occ / 100);
     const perAgent = fteHandle * 3600 / S.aht;          // calls per FTE per month
     const hrsPerCall = S.aht / 3600;
     const costPerCall = perAgent > 0 ? S.cost / perAgent : 0;
     let N;
-    if (S.mode === "agents") N = (d + r) > 0 ? S.agents * perAgent / (d + r) : 0;
+    const callShare = S.share / 100;                    // share of the team's working time on these calls
+    if (S.mode === "agents") N = (d + r) > 0 ? S.agents * callShare * perAgent / (d + r) : 0;
     else N = S.calls;
     const fixed = S.platform + S.impl / S.months;
     const need = calls => { const a = perAgent > 0 ? calls / perAgent : 0; return S.whole ? Math.ceil(a - 1e-9) : a; };
@@ -616,7 +628,8 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     }
     base.handleHours = (d + r) * N * hrsPerCall;
     const rate = fteHandle > 0 ? S.cost / fteHandle : 0;   // $ per agent handle hour
-    return { d, i, r, perHour, fteHandle, perAgent, costPerCall, rate, N, fixed, base, at, be, reason };
+    const teamFTE = callShare > 0 && perAgent > 0 ? (d + r) * N / perAgent / callShare : 0; // whole team incl. other work
+    return { d, i, r, perHour, fteHandle, perAgent, costPerCall, rate, N, fixed, base, at, be, reason, callShare, teamFTE };
   }
 
   // Flow diagram
@@ -855,7 +868,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
         <p class="rp-value">${value}</p>
         <div class="rp-big">
           <div><span class="v">${money(sav * 12, true)}</span><span class="k">Saved per year</span><span class="n">at full run rate</span></div>
-          <div><span class="v">${agentsFmt(t.fteSaved)}</span><span class="k">Agent FTEs freed</span><span class="n">of ${agentsFmt(b.agents)} today</span></div>
+          <div><span class="v">${agentsFmt(t.fteSaved)}</span><span class="k">Agent FTEs freed</span><span class="n">of ${agentsFmt(b.agents)} FTEs of call work</span></div>
           <div><span class="v">${payback}</span><span class="k">Payback</span><span class="n">from contract start</span></div>
         </div>
         <div class="rp-gauge">
@@ -879,10 +892,10 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     const assume = [
       ["Inbound calls / month", count(m.N)], ["Direct to agent", S.direct + "%"], ["Contained in IVR", S.ivr + "%"],
       ["Reaching AVA", pct(m.r)], ["Average call time", S.aht + " sec"], ["Agent occupancy", S.occ + "%"],
-      ["Time on these calls", S.share + "%"], ["Paid hours / FTE / month", S.hours], ["Loaded cost / FTE / month", money(S.cost)],
+      ["Shrinkage", S.shrink + "%"], ["Working time on these calls", S.share + "%"], ["Paid hours / FTE / month", S.hours], ["Loaded cost / FTE / month", money(S.cost)],
       ["Cost per agent handle hour", "$" + m.rate.toFixed(2)], ["IVR fee / call", "$" + S.ivrCost.toFixed(2)], ["AVA fee / call", "$" + S.avaCost.toFixed(2) + (S.chargeEsc ? " (all AVA calls)" : " (contained)")],
       ["AVA platform / month", money(S.platform)], ["Implementation cost", money(S.impl)], ["Implementation time", S.implMonths + " mo"],
-      ["Containment growth", "+" + S.growth + " pts / yr"], ["FTE staffing", S.whole ? "Whole people" : "Fractional"], ["Agents without AVA", agentsFmt(b.agents)]
+      ["Containment growth", "+" + S.growth + " pts / yr"], ["FTE staffing", S.whole ? "Whole people" : "Fractional"], ["Call-work FTEs without AVA", agentsFmt(b.agents)]
     ].map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join("");
     const page2 = `
       <section class="rp-page details">
@@ -945,7 +958,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     if (S.target > rPct) S.target = rPct;
     $("target").value = S.target;
     if (S.mode === "agents") $("calls").value = Math.round(m.N);
-    else $("agents").value = agentsFmt(m.base.agents).replace(/,/g, "");
+    else $("agents").value = (S.whole ? Math.ceil(m.teamFTE - 1e-9) : Math.round(m.teamFTE * 10) / 10);
 
     // Calculated values (mirrors the values sheet)
     const t = m.at(S.target / 100);
@@ -1032,7 +1045,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     const beFrac = Math.max(0, S.chargeEsc ? (m.r * m.N * (S.avaCost - S.ivrCost) + m.fixed) / (m.N * m.costPerCall) : (m.fixed - m.r * m.N * S.ivrCost) / (m.N * (m.costPerCall - S.avaCost)));
     const steps = [
       `Agent cost per handle hour = ${money(S.cost)} ÷ ${f2(m.fteHandle)} handle hr per FTE = <b>$${m.rate.toFixed(2)}</b>. Any dollar amount ÷ this = its agent-hour equivalent.`,
-      `Handle hours per FTE = ${f2(S.hours)} paid hr × ${S.share}% on these calls × ${S.occ}% occupancy = <b>${f2(m.fteHandle)} hr</b>`,
+      `Handle hours per FTE = ${f2(S.hours)} paid hr × (100% − ${S.shrink}% shrinkage) × ${S.occ}% occupancy = <b>${f2(m.fteHandle)} hr</b>` + (S.share < 100 ? `. Agents spend ${S.share}% of working time on these calls; the other ${100 - S.share}% is work AVA doesn't remove, so it isn't counted as savings.` : ""),
       `Share reaching AVA = 100% − ${S.direct}% direct − ${S.ivr}% IVR = <b>${pct(m.r)}</b>`,
       `<b>Without AVA.</b> Agent calls = (${S.direct}% + ${pct(m.r)}) × ${count(m.N)} = ${count((m.d + m.r) * m.N)}. Handle hours = ${count((m.d + m.r) * m.N)} × ${f2(S.aht)} sec ÷ 3,600 = ${f2(m.base.handleHours)}. FTEs = ${f2(m.base.handleHours)} ÷ ${f2(m.fteHandle)} = ${f2(rawA0)}${S.whole ? " → rounded up to " + count(m.base.agents) : ""}. Labor = ${agentsFmt(m.base.agents)} × ${money(S.cost)} = ${money(m.base.agentCost)}. IVR = ${pct(1 - m.d)} × ${count(m.N)} × $${S.ivrCost.toFixed(2)} = ${money(m.base.ivr)}. Total = <b>${money(m.base.total)}</b>`,
       `<b>Hours automated at ${pct(t.c)} AVA.</b> ${count(t.c * m.N)} contained calls × ${f2(S.aht)} sec ÷ 3,600 = <b>${f2(t.hoursAuto)} hr</b>`,
@@ -1054,7 +1067,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     summary = [
       "AVA containment break-even",
       `Inbound calls: ${count(m.N)}/month. Direct to agent ${S.direct}%, IVR contained ${S.ivr}%, reaching AVA ${pct(m.r)}`,
-      `Agent: $${count(S.cost)}/month loaded, ${S.hours} paid hr/month, ${S.share}% on these calls, ${S.occ}% occupancy, ${S.aht}s call time → ${m.fteHandle.toFixed(1)} handle hr per FTE, $${m.costPerCall.toFixed(2)}/call`,
+      `Agent: $${count(S.cost)}/month loaded, ${S.hours} paid hr/month, ${S.shrink}% shrinkage, ${S.share}% of working time on these calls, ${S.occ}% occupancy, ${S.aht}s call time → ${m.fteHandle.toFixed(1)} handle hr per FTE, $${m.costPerCall.toFixed(2)}/call`,
       `At target: ${count(t.hoursAuto)} agent hours automated/month = ${agentsFmt(t.fteSaved)} FTEs saved; net savings ${hrs(sav)}/month in agent-hour equivalents at $${m.rate.toFixed(2)}/hr`,
       `IVR $${S.ivrCost.toFixed(2)}/call (only calls that never reach AVA), AVA $${S.avaCost.toFixed(2)}/call${S.chargeEsc ? " (charged on escalated calls too)" : ""}`,
       `Without AVA: ${agentsFmt(b.agents)} agents, ${money(b.total)}/month`,

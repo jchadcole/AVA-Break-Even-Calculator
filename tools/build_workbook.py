@@ -25,7 +25,8 @@ inputs = [
  ("Agent occupancy rate", 0.80, "0.0%", "occ"),
  ("Average call time (sec)", 600, "#,##0", "aht"),
  ("Paid hours per agent per month (one FTE)", 173, "#,##0.0", "hours"),
- ("% of agent time spent on these calls", 0.75, "0.0%", "share"),
+ ("Shrinkage (breaks, training, meetings, time off; % of paid time)", 0.25, "0.0%", "shrink"),
+ ("% of working time on these calls (rest is other tasks AVA does not remove)", 1.00, "0.0%", "share"),
  ("% of calls that go directly to an agent", 0.10, "0.0%", "direct"),
  ("% of calls contained in IVR", 0.20, "0.0%", "ivr"),
  ("% of calls contained in AVA (target, % of ALL calls)", 0.50, "0.0%", "target"),
@@ -48,9 +49,9 @@ for label, val, fmt, key in inputs:
 r += 1
 head(r, "Calculated values"); r += 1
 calc = [
- ("Inbound calls per month (used)", f"=IF({R['mode']}=2,IF({R['direct']}+B{{reach}}=0,0,{R['agentsin']}*B{{peragent}}/({R['direct']}+B{{reach}})),{R['callsin']})", "#,##0.0", "callsused", "mode 1: as entered; mode 2: agent FTEs × calls per FTE ÷ (direct % + % reaching AVA), like the page's headcount mode"),
+ ("Inbound calls per month (used)", f"=IF({R['mode']}=2,IF({R['direct']}+B{{reach}}=0,0,{R['agentsin']}*{R['share']}*B{{peragent}}/({R['direct']}+B{{reach}})),{R['callsin']})", "#,##0.0", "callsused", "mode 1: as entered; mode 2: agent FTEs × % of working time on these calls × calls per FTE ÷ (direct % + % reaching AVA), like the page's headcount mode"),
  ("Agent calls per hour", f"=3600/{R['aht']}*{R['occ']}", "0.00", "perhour", "3600 ÷ call time × occupancy"),
- ("Handle hours per FTE per month", f"={R['hours']}*{R['share']}*{R['occ']}", "#,##0.00", "fteh", "paid hours × % on these calls × occupancy"),
+ ("Handle hours per FTE per month", f"={R['hours']}*(1-{R['shrink']})*{R['occ']}", "#,##0.00", "fteh", "paid hours × (1 − shrinkage) × occupancy. Time on other tasks is left out: automating calls only frees call hours"),
  ("Calls per FTE per month", f"=B{{fteh}}*3600/{R['aht']}", "#,##0.0", "peragent", "handle hours per FTE × 3600 ÷ call time"),
  ("Agent cost per call", f"={R['cost']}/B{{peragent}}", "$0.0000", "cpc", "agent cost ÷ calls per FTE per month"),
  ("Agent cost per handle hour", f"={R['cost']}/B{{fteh}}", "$0.00", "rate", "agent cost ÷ handle hours per FTE; any dollar amount ÷ this = its agent-hour equivalent"),
@@ -190,7 +191,7 @@ checks = [
  ("Hours chain: labor saved + IVR avoided − AVA cost = total cost difference", f"={C}B{R['sav']}", f"={C}B{R['net']}", "$#,##0"),
  ("Fractional FTEs: FTEs saved = hours automated ÷ handle hours per FTE", f"={C}B{R['ftefrac']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['ftesaved']})", "#,##0.00"),
  ("Hours: labor saved + IVR avoided − AVA cost = net monthly savings", f"={C}B{R['h_sav']}", f"=IFERROR({C}B{R['h_lab']}+{C}B{R['h_ivr']}-{C}B{R['h_ava']},\"n/a\")", "#,##0.0"),
- ("Headcount mode: FTEs without AVA = agent FTEs entered (n/a unless mode = 2; rounding up applies)", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['agentsin']}-0.000000001,0),{C}{R['agentsin']})", f"=IF({C}{R['mode']}<>2,\"set mode to 2\",IF({C}{R['direct']}+{C}B{R['reach']}=0,\"no agent calls\",{C}B{R['agents']}))", "#,##0.0"),
+ ("Headcount mode: FTEs without AVA = agent FTEs entered × % of working time on these calls (n/a unless mode = 2; rounding up applies)", f"=IF({C}{R['whole']}=1,ROUNDUP({C}{R['agentsin']}*{C}{R['share']}-0.000000001,0),{C}{R['agentsin']}*{C}{R['share']})", f"=IF({C}{R['mode']}<>2,\"set mode to 2\",IF({C}{R['direct']}+{C}B{R['reach']}=0,\"no agent calls\",{C}B{R['agents']}))", "#,##0.0"),
  ("Year 1 = months in production × (monthly savings at target + implementation ÷ months) − implementation − platform fee during implementation", f"=(12-{C}{R['implm']})*({C}B{R['sav']}+{C}{R['impl']}/MAX(1,{C}{R['months']}))-{C}{R['impl']}-{C}{R['implm']}*{C}{R['platform']}", f"={C}D{R['yfirst']}", "$#,##0"),
  ("Fractional agents: labor = agent calls × agent cost per call", f"={C}B{R['agcalls']}*{C}B{R['cpc']}", f"=IF({C}{R['whole']}=1,\"turn rounding off\",{C}B{R['labor']})", "$#,##0"),
 ]

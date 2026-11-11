@@ -15,7 +15,8 @@ Every inbound call takes one of four paths:
 
 ## How savings are calculated
 
-- Handle hours per FTE = paid hours per month × % of agent time on these calls × occupancy
+- Handle hours per FTE = paid hours per month × (1 − shrinkage) × occupancy. Shrinkage is breaks, training, meetings and time off. Time agents spend on other tasks (email, back office) is deliberately left out: automating calls frees only the call hours, and the other work remains
+- % of working time on these calls is used only in headcount mode: calls = agent FTEs × that % × calls per FTE ÷ (direct % + % reaching AVA). Every FTE figure in the results is FTEs of call work
 - Agent hours automated = AVA-contained calls × average call time ÷ 3600
 - FTEs saved = agent hours automated ÷ handle hours per FTE
 - Labor saved = FTEs saved × fully loaded agent cost

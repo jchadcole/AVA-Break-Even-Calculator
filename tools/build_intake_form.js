@@ -113,8 +113,9 @@ const children = [
     [
       ["Fully loaded cost per agent", "Total monthly cost of one FTE agent: wages, benefits, payroll taxes, plus a share of supervision, facilities, technology and outsourcing fees.", "Finance or HR; outsourcer rate card (hourly rate × paid hours).", "$7,000 per month", "$ per FTE per month"],
       ["Paid hours per agent", "Hours one full-time agent is paid in a month.", "HR policy or payroll. 40 hr/week × 52 ÷ 12 = 173.", "173 hours", "hours per month"],
-      ["Share of time on these calls", "Of paid time, the share spent logged in to these queues. The rest is breaks, training, meetings, coaching, other channels and time off.", "WFM shrinkage reports (100% minus shrinkage), or logged-in hours ÷ paid hours.", "75%", "% of paid time"],
-      ["Occupancy", "Of logged-in time, the share spent on calls (talking, holding, wrap-up) rather than waiting for the next call.", "WFM or ACD occupancy report.", "80%", "% of logged-in time"],
+      ["Shrinkage", "Share of paid time when agents can't work at all: breaks, training, meetings, coaching, sick time and vacation. Do not include time on other tasks.", "WFM shrinkage report; workforce planning assumptions.", "25%", "% of paid time"],
+      ["Share of working time on these calls", "Of the time agents are available to work, the share spent on these voice calls. The rest is other tasks such as email, chat or back-office work.", "WFM or ACD reports (logged-in time by queue or activity); team leads.", "100% (voice only) or 70%", "% of working time"],
+      ["Occupancy on these calls", "Of the time agents are logged in to these calls, the share spent talking, holding or on wrap-up rather than waiting for the next call. If agents fill the gaps between calls with other work, give their overall occupancy.", "WFM or ACD occupancy report for these queues.", "80%", "% of logged-in time"],
       ["Average handle time", "Average agent time per call: talk + hold + after-call work.", "ACD or WFM reports (AHT).", "10 min (600 sec)", "minutes or seconds"],
       ["Count savings in whole agents only?", "Yes if savings only count when a full agent position is removed. No if partial FTEs count (overtime, outsourced hours, attrition).", "Operations or finance leadership.", "Yes", "Yes / No"],
     ]),
