@@ -178,6 +178,35 @@ details code { font-family: var(--f-mono); font-size: 12.5px; color: var(--ink);
 }
 
 /* Executive report: two letter pages (value statement, supporting details), shown in an overlay and printed on their own */
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: -8px; }
+.tabs button { border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 10px 16px 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); background: none; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.tabs button:hover { color: var(--ink); }
+.tabpane { display: flex; flex-direction: column; gap: 22px; }
+/* Inputs tab */
+.in-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 22px; padding: 12px 16px; }
+.in-sum div { display: flex; flex-direction: column; }
+.in-sum .k { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.in-sum .v { font: 600 18px var(--f-mono); font-variant-numeric: tabular-nums; }
+.in-sum button { margin-left: auto; }
+.in-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); gap: 18px; align-items: start; }
+.in-card { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
+.in-card h3 { font-family: var(--f-display); font-weight: 500; font-size: 17px; margin: 0; }
+.in-card h3 span { color: var(--accent); margin-right: 6px; }
+.in-card > p { margin: -4px 0 2px; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.in-card.wide { grid-column: 1 / -1; }
+.in-card .calc { font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+.in-card .calc b { color: var(--ink); font-family: var(--f-mono); font-weight: 500; }
+.tfield { display: grid; gap: 4px; }
+.tfield label { font-size: 13px; }
+.tfield input, .tfield textarea { width: 100%; font: 14px var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+.tfield textarea { min-height: 96px; resize: vertical; line-height: 1.45; }
+.tfield input:focus-visible, .tfield textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.in-card.wide .in-two { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .in-card.wide .in-two { grid-template-columns: minmax(0, 1fr); } }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.in-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px 16px; }
 /* Saved scenarios bar */
 .scen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 4px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .scen label { font-weight: 600; font-size: 13px; }
@@ -294,6 +323,24 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     </div>
     <span class="msg" id="scenMsg" aria-live="polite"></span>
   </div>
+
+  <div class="tabs" role="tablist" aria-label="Views">
+    <button type="button" role="tab" id="tabBtnInputs" aria-controls="tabInputs">Inputs</button>
+    <button type="button" role="tab" id="tabBtnCalc" aria-controls="tabCalc">Calculator</button>
+  </div>
+
+  <div class="tabpane" id="tabInputs" role="tabpanel" aria-labelledby="tabBtnInputs" hidden>
+    <div class="panel in-sum" aria-live="polite">
+      <div><span class="k">Break-even</span><span class="v" id="sumBe">–</span></div>
+      <div><span class="k">Target</span><span class="v" id="sumTarget">–</span></div>
+      <div><span class="k">Saved per year</span><span class="v" id="sumYear">–</span></div>
+      <div><span class="k" id="sumMultiK">Multi-year</span><span class="v" id="sumMulti">–</span></div>
+      <button type="button" class="primary" id="toCalc">See results</button>
+    </div>
+    <form class="in-grid" id="inForm" autocomplete="off"></form>
+  </div>
+
+  <div class="tabpane" id="tabCalc" role="tabpanel" aria-labelledby="tabBtnCalc">
 
   <section class="panel flow-card">
     <div class="card-head"><h2>Call flow at target containment</h2><span class="hint" id="flowBasis"></span></div>
@@ -516,6 +563,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
       </details>
     </div>
   </div>
+  </div>
 </div>
 
 <div id="reportOverlay" hidden role="dialog" aria-modal="true" aria-label="Executive report">
@@ -533,8 +581,10 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     cost: 7000, occ: 80, aht: 600, hours: 173, shrink: 30, share: 100, whole: true,
     direct: 10, ivr: 20,
     ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
-    target: 50, years: 5, growth: 5, implMonths: 3, openYears: true, openCost: true
+    target: 50, years: 5, growth: 5, implMonths: 3, openYears: true, openCost: true, tab: "calc",
+    custCompany: "", custContact: "", custEmail: "", custDate: "", custQueues: "", custPeriod: "", notes: ""
   };
+  const TEXTS = ["custCompany", "custContact", "custEmail", "custDate", "custQueues", "custPeriod", "notes"];
   const KEY = "ava-containment-break-even-v9", V8_KEY = "ava-containment-break-even-v8", OLD_KEY = "ava-containment-break-even-v7";
   const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "shrink", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth", "implMonths"];
   const CHECKS = ["whole", "chargeEsc"];
@@ -590,12 +640,18 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   function readForm() {
     FIELDS.forEach(id => S[id] = Math.max(0, num($(id).value)));
     CHECKS.forEach(id => S[id] = $(id).checked);
+    clamp();
+  }
+  function clamp() {
+    FIELDS.forEach(id => S[id] = Math.max(0, num(S[id])));
+    S.target = Math.max(0, num(S.target));
     S.occ = Math.min(100, Math.max(1, S.occ)); S.share = Math.min(100, Math.max(1, S.share)); S.shrink = Math.min(90, S.shrink);
     S.aht = Math.max(1, S.aht); S.hours = Math.max(1, S.hours); S.months = Math.max(1, S.months); S.years = Math.min(15, Math.max(1, Math.round(S.years))); S.implMonths = Math.min(12, Math.round(S.implMonths));
     S.direct = Math.min(100, S.direct); S.ivr = Math.min(100 - S.direct, S.ivr);
   }
   function setMode(mode, quiet) {
     S.mode = mode;
+    document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === mode));
     $("modeAgents").setAttribute("aria-pressed", mode === "agents");
     $("modeCalls").setAttribute("aria-pressed", mode === "calls");
     $("agents").disabled = mode !== "agents";
@@ -866,7 +922,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     const head = (title, sub) => `
       <div class="rp-head">
         <div><h1>${title}</h1><div class="sub">${sub}</div></div>
-        <div class="date">${today}</div>
+        <div class="date">${S.custCompany ? "Prepared for " + escHtml(S.custCompany) + "<br>" : ""}${today}</div>
       </div>`;
 
     // ---------- Page 1: value statement
@@ -983,6 +1039,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   }
   function render() {
     const m = model();
+    syncInputsTab(m);
     RATE = m.rate || 1;
     $("rateHint").textContent = "$" + m.rate.toFixed(2) + " per agent handle hour";
     const rPct = Math.round(m.r * 1000) / 10;
@@ -1119,7 +1176,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   $("modeAgents").addEventListener("click", () => { readForm(); setMode("agents"); });
   $("modeCalls").addEventListener("click", () => { readForm(); setMode("calls"); });
   $("target").addEventListener("input", e => { S.target = num(e.target.value); render(); save(); });
-  $("reset").addEventListener("click", () => { S = Object.assign({}, DEFAULTS); fillForm(); render(); save(); });
+  $("reset").addEventListener("click", () => { S = Object.assign({}, DEFAULTS, { tab: S.tab, openYears: S.openYears, openCost: S.openCost }); fillForm(); render(); save(); });
   $("copy").addEventListener("click", async () => {
     const btn = $("copy");
     try { await navigator.clipboard.writeText(summary); btn.textContent = "Copied"; }
@@ -1127,15 +1184,113 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
     setTimeout(() => btn.textContent = "Copy summary", 1800);
   });
 
+  // ---------- Inputs tab: same state as the calculator, grouped like the customer data-gathering form
+  const IN_GROUPS = [
+    { t: "Customer", d: "Who this scenario is for. Shown on the executive report.", wide: true, text: [
+      ["custCompany", "Company"], ["custContact", "Contact name and role"], ["custEmail", "Email and phone"],
+      ["custDate", "Date completed", "date"], ["custQueues", "Queues or lines of business in scope"], ["custPeriod", "Period the figures cover"]] },
+    { t: "Call volume", d: "Enter calls per month, or agent headcount if call counts aren't available.", mode: true, f: [
+      ["calls", "Inbound calls per month", "", "calls", "Every inbound voice call, including ones the IVR resolves."],
+      ["agents", "Agent FTEs today", "", "FTEs", "The whole team, including time on other work."]] },
+    { t: "How calls flow today", d: "Shares of all inbound calls.", calc: "reach", f: [
+      ["direct", "Go straight to an agent", "", "%", "Skip or opt out of the IVR."],
+      ["ivr", "Resolved in the IVR", "", "%", "Finish in the IVR with no agent."]] },
+    { t: "Agent cost and time", f: [
+      ["cost", "Fully loaded cost per agent", "$", "/mo", "Wages, benefits, taxes, overhead."],
+      ["hours", "Paid hours per agent", "", "hr/mo", "40 hr × 52 ÷ 12 ≈ 173."],
+      ["shrink", "Shrinkage", "", "%", "Breaks, training, meetings, time off."],
+      ["share", "Working time on these calls", "", "%", "The rest is other tasks AVA doesn't remove."],
+      ["occ", "Occupancy on these calls", "", "%", "Logged-in time spent handling calls."],
+      ["aht", "Average handle time", "", "sec", "Talk + hold + wrap-up.", "ahtMin"]], checks: [
+      ["whole", "Count savings in whole agents only"]] },
+    { t: "Per-call fees", d: "Each call pays one automation fee.", f: [
+      ["ivrCost", "IVR cost per call", "$", "", "Calls that never reach AVA."],
+      ["avaCost", "AVA cost per call", "$", "", "Replaces the IVR fee once a call reaches AVA."]], checks: [
+      ["chargeEsc", "AVA is billed on calls it passes to an agent"]] },
+    { t: "AVA fixed and one-time costs", d: "Enter 0 for any cost that doesn't apply.", f: [
+      ["platform", "Monthly platform fee", "$", "/mo", "Subscription, licenses, hosting, support."],
+      ["impl", "One-time implementation cost", "$", "", "Setup, integration, services, internal project."],
+      ["months", "Spread the one-time cost over", "", "mo", "Used for the monthly view."]] },
+    { t: "Rollout and goals", f: [
+      ["implMonths", "Implementation time", "", "mo", "Contract to go-live (0–12)."],
+      ["target", "Target AVA containment", "", "%", "Share of all calls AVA resolves once live."],
+      ["growth", "Yearly increase in containment", "", "pts", "Points of all calls added each year."],
+      ["years", "Years to project", "", "yr", "1 to 15."]] },
+    { t: "Notes", d: "Volume changes, seasonal peaks, outsourcing, top call reasons, anything unusual.", wide: true, notes: true }
+  ];
+  let EDITING = null;
+  function buildInputsTab() {
+    const numRow = ([k, label, pre, suf, hint, extra]) => `
+      <div class="field"><label for="in_${k}">${label}<small>${hint}${extra ? ` <span id="${extra}"></span>` : ""}</small></label>
+        <div class="${pre ? "prefix" : "suffix"}">${pre ? `<span>${pre}</span>` : suf ? `<span>${suf}</span>` : ""}<input type="number" id="in_${k}" data-k="${k}" min="0" step="any"></div></div>`;
+    $("inForm").innerHTML = IN_GROUPS.map((g, gi) => `
+      <section class="panel in-card${g.wide ? " wide" : ""}">
+        <h3>${gi === 0 ? "" : `<span>${gi}.</span>`}${g.t}</h3>
+        ${g.d ? `<p>${g.d}</p>` : ""}
+        ${g.mode ? `<div class="seg" role="group" aria-label="How call volume is set"><button type="button" data-mode="calls">Calls per month</button><button type="button" data-mode="agents">Agent headcount</button></div>` : ""}
+        ${g.text ? `<div class="in-two">${g.text.map(([k, label, type]) => `<div class="tfield"><label for="in_${k}">${label}</label><input type="${type || "text"}" id="in_${k}" data-k="${k}" data-text maxlength="200"></div>`).join("")}</div>` : ""}
+        ${(g.f || []).map(numRow).join("")}
+        ${(g.checks || []).map(([k, label]) => `<label class="check"><input type="checkbox" id="in_${k}" data-k="${k}"><span>${label}</span></label>`).join("")}
+        ${g.calc ? `<div class="calc">Reaching AVA (calls AVA would answer): <b id="inReach"></b></div>` : ""}
+        ${g.notes ? `<div class="tfield"><label for="in_notes" class="sr">Notes</label><textarea id="in_notes" data-k="notes" data-text maxlength="4000"></textarea></div>` : ""}
+      </section>`).join("");
+  }
+  function syncInputsTab(m) {
+    if (!$("inForm") || !$("inForm").firstElementChild) return;
+    const active = EDITING;  // don't overwrite the field the user is typing in
+    $("inForm").querySelectorAll("[data-k]").forEach(el => {
+      if (el === active) return;
+      const k = el.dataset.k;
+      if (el.type === "checkbox") el.checked = !!S[k];
+      else el.value = S[k] ?? "";
+    });
+    if (S.mode === "agents") { if (active !== $("in_calls")) $("in_calls").value = Math.round(m.N); }
+    else if (active !== $("in_agents")) $("in_agents").value = S.whole ? Math.ceil(m.teamFTE - 1e-9) : Math.round(m.teamFTE * 10) / 10;
+    $("in_calls").disabled = S.mode !== "calls"; $("in_agents").disabled = S.mode !== "agents";
+    $("inReach").textContent = pct(m.r);
+    $("ahtMin").textContent = "= " + (S.aht / 60).toFixed(1) + " min.";
+    const t = m.at(S.target / 100), sav = m.base.total - t.total;
+    $("sumBe").textContent = m.be !== null ? pct(m.be) : "n/a";
+    $("sumTarget").textContent = pct(t.c);
+    $("sumYear").textContent = money(sav * 12, true);
+    try { const ys = yearRows(m); $("sumMultiK").textContent = S.years + "-year savings"; $("sumMulti").textContent = money(ys[ys.length - 1].cum, true); } catch (e) {}
+  }
+  function onInputsTab(e) {
+    const el = e.target, k = el.dataset && el.dataset.k; if (!k) return;
+    if (el.type === "checkbox") S[k] = el.checked;
+    else if (el.hasAttribute("data-text")) S[k] = el.value;
+    else S[k] = num(el.value);
+    clamp(); fillForm(); EDITING = el; try { render(); } finally { EDITING = null; } save();
+  }
+  function setTab(tab) {
+    S.tab = tab === "inputs" ? "inputs" : "calc";
+    $("tabInputs").hidden = S.tab !== "inputs"; $("tabCalc").hidden = S.tab !== "calc";
+    $("tabBtnInputs").setAttribute("aria-selected", S.tab === "inputs"); $("tabBtnCalc").setAttribute("aria-selected", S.tab === "calc");
+    $("tabBtnInputs").tabIndex = S.tab === "inputs" ? 0 : -1; $("tabBtnCalc").tabIndex = S.tab === "calc" ? 0 : -1;
+    if (S.tab === "calc") render();
+  }
+  buildInputsTab();
+  $("inForm").addEventListener("input", onInputsTab);
+  $("inForm").addEventListener("change", onInputsTab);
+  $("inForm").addEventListener("submit", e => e.preventDefault());
+  $("inForm").addEventListener("click", e => { const b = e.target.closest("[data-mode]"); if (b) { readForm(); setMode(b.dataset.mode); } });
+  $("tabBtnInputs").addEventListener("click", () => { setTab("inputs"); save(); });
+  $("tabBtnCalc").addEventListener("click", () => { setTab("calc"); save(); });
+  $("toCalc").addEventListener("click", () => { setTab("calc"); save(); window.scrollTo({ top: 0 }); });
+  document.querySelector(".tabs").addEventListener("keydown", e => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    const next = S.tab === "inputs" ? "calc" : "inputs"; setTab(next); save(); $(next === "inputs" ? "tabBtnInputs" : "tabBtnCalc").focus();
+  });
+
   // ---------- Saved scenarios (kept in this browser; export/import or a link moves them elsewhere)
   const SCEN_KEY = "ava-break-even-scenarios", CUR_KEY = "ava-break-even-scenario-current";
-  const SCEN_FIELDS = ["mode", "target", ...FIELDS, ...CHECKS];
+  const SCEN_FIELDS = ["mode", "target", ...FIELDS, ...CHECKS, ...TEXTS];
   let SCEN = {}, CUR = "";
   try { SCEN = JSON.parse(localStorage.getItem(SCEN_KEY)) || {}; } catch (e) { SCEN = {}; }
   try { CUR = localStorage.getItem(CUR_KEY) || ""; } catch (e) { CUR = ""; }
   if (!SCEN[CUR]) CUR = "";
   const snap = () => { const o = {}; SCEN_FIELDS.forEach(k => o[k] = S[k]); return o; };
-  const same = (a, b) => SCEN_FIELDS.every(k => String(a[k]) === String(b[k]));
+  const same = (a, b) => SCEN_FIELDS.every(k => String(a[k] ?? DEFAULTS[k]) === String(b[k] ?? DEFAULTS[k]));
   function storeScen() {
     try { localStorage.setItem(SCEN_KEY, JSON.stringify(SCEN)); localStorage.setItem(CUR_KEY, CUR); } catch (e) {}
   }
@@ -1143,7 +1298,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   function flash(t) { $("scenMsg").textContent = t; clearTimeout(msgTimer); msgTimer = setTimeout(() => $("scenMsg").textContent = "", 4000); }
   function applyInputs(o) {
     // Unknown or missing fields fall back to defaults; layout preferences (open panels) are kept
-    const keep = { openYears: S.openYears, openCost: S.openCost };
+    const keep = { openYears: S.openYears, openCost: S.openCost, tab: S.tab };
     S = Object.assign({}, DEFAULTS, keep);
     SCEN_FIELDS.forEach(k => { if (o && o[k] !== undefined) S[k] = o[k]; });
     fillForm(); render(); save();
@@ -1235,7 +1390,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
   $("printReport").addEventListener("click", () => window.print());
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("reportOverlay").hidden) closeReport(); });
 
-  fillForm(); render();
+  fillForm(); setTab(S.tab); render();
   readLink(); scenUI();
 })();
 </script>
