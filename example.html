@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two-Agent Example</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #f3f5f7; --surface: #ffffff; --ink: #15212b; --muted: #5b6b78; --line: #d9e0e6;
+  --accent: #0f6e78; --agent: #7a8c9b; --ava: #3fa3ad; --shrink: #c9d3da; --wait: #e6ebef; --bad: #b8402f; --good: #1f7a4a;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+/* The calculator is pinned to the light theme, so this page is too */
+html { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 var(--f-body);
+  padding: 28px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); }
+.wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+a { color: var(--accent); }
+.back { font-size: 14px; }
+h1 { font-family: var(--f-display); font-size: clamp(28px, 4.4vw, 42px); line-height: 1.08; margin: 6px 0 8px; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { font-size: 18px; color: var(--muted); margin: 0; max-width: 62ch; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; gap: 14px; }
+.step h2 { font-family: var(--f-display); font-weight: 700; font-size: 22px; margin: 0; display: flex; align-items: center; gap: 12px; }
+.step h2 .n { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 17px; }
+.step p { margin: 0; max-width: 66ch; }
+.math { font-family: var(--f-mono); font-size: 14.5px; background: var(--bg); border-radius: 8px; padding: 10px 14px; line-height: 1.8; overflow-x: auto; }
+.math b { color: var(--accent); font-weight: 500; }
+.art { width: 100%; height: auto; display: block; }
+.art text { font-family: var(--f-body); fill: var(--ink); }
+.art .m { font-family: var(--f-mono); }
+.art .mu { fill: var(--muted); }
+.key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.key i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.big { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px; }
+.big div { border-top: 3px solid var(--accent); padding-top: 8px; }
+.big .v { display: block; font: 700 28px/1.1 var(--f-display); }
+.big .k { font-size: 13.5px; color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: 15px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+td.n, th.n { text-align: right; font-family: var(--f-mono); white-space: nowrap; }
+th { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+td.ok { color: var(--good); font-weight: 600; text-align: center; }
+.cta { display: inline-block; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; padding: 11px 18px; border-radius: 8px; align-self: flex-start; }
+.cta:hover { filter: brightness(1.08); }
+.note { font-size: 13.5px; color: var(--muted); }
+.table-scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← Back to the calculator</a>
+  <header>
+    <h1>The whole idea, with two agents</h1>
+    <p class="lede">A tiny contact center with round numbers, worked through by hand. The calculator gives the same answers when it is given the same inputs.</p>
+  </header>
+
+  <section class="step">
+    <h2><span class="n">1</span>Meet the team</h2>
+    <p>Two agents. They do one job: answer calls. Each is paid for <b>100 hours</b> a month and costs <b>$6,000</b> a month.</p>
+    <p>Not every paid hour is call time. <b>20 hours</b> go to breaks, training and meetings (20% shrinkage). Of the 80 hours left, agents spend <b>75%</b> actually on calls (occupancy). The rest is waiting for the next call.</p>
+    <svg class="art" id="artTeam" viewBox="0 0 760 210" role="img" aria-label="Two agents, each with 100 paid hours: 20 shrinkage, 20 waiting, 60 on calls"></svg>
+    <div class="key"><span><i style="background:var(--shrink)"></i>Breaks, training, meetings</span><span><i style="background:var(--wait);outline:1px solid var(--line)"></i>Waiting for a call</span><span><i style="background:var(--agent)"></i>On calls</span></div>
+    <div class="math">100 paid hr × (100% − 20% shrinkage) × 75% occupancy = <b>60 hr of calls per agent</b></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">2</span>The calls</h2>
+    <p>Each call takes <b>6 minutes</b>, so an agent handles 10 calls in an hour of call time. Sixty hours of call time is <b>600 calls</b> per agent, and <b>1,200 calls</b> a month for the two of them. Each icon below is 100 calls.</p>
+    <svg class="art" id="artCalls" viewBox="0 0 760 170" role="img" aria-label="Twelve call icons, six for each agent"></svg>
+    <div class="math">60 hr × 60 min ÷ 6 min = <b>600 calls per agent</b> · 2 agents = <b>1,200 calls a month</b><br>
+      $6,000 ÷ 60 hr = <b>$100 per hour of calls</b> · $6,000 ÷ 600 calls = <b>$10 of agent time per call</b></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">3</span>AVA answers half the calls</h2>
+    <p>Every call now goes to AVA first. AVA fully resolves <b>half</b> of them, <b>600 calls</b>. The other 600 are passed to an agent.</p>
+    <p>600 calls × 6 minutes = <b>60 hours</b> of call work that no agent has to do. That is exactly one agent's call time, so <b>one agent is freed</b>.</p>
+    <svg class="art" id="artAva" viewBox="0 0 760 210" role="img" aria-label="AVA takes six call icons; one agent keeps six; the other agent is freed"></svg>
+    <p>AVA is not free. It charges <b>$2 for every call it answers</b>, including the ones it passes on to an agent: 1,200 calls × $2 = <b>$2,400</b> a month.</p>
+    <div class="math">600 resolved calls × 6 min ÷ 60 = <b>60 hours automated</b> · 60 hr ÷ 60 hr per agent = <b>1 agent freed</b><br>
+      AVA bill = 1,200 calls × $2 = <b>$2,400</b></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">4</span>The monthly bill</h2>
+    <svg class="art" id="artBill" viewBox="0 0 760 250" role="img" aria-label="Before: two agents, $12,000. After: one agent $6,000 plus AVA $2,400 = $8,400. Saved $3,600."></svg>
+    <div class="big">
+      <div><span class="v">$3,600</span><span class="k">saved every month (36 agent hours)</span></div>
+      <div><span class="v">$43,200</span><span class="k">saved per year</span></div>
+      <div><span class="v">1 of 2</span><span class="k">agents freed</span></div>
+    </div>
+    <div class="math">Before: 2 × $6,000 = <b>$12,000</b> · After: 1 × $6,000 + $2,400 AVA = <b>$8,400</b><br>
+      Saved: $12,000 − $8,400 = <b>$3,600 a month</b> × 12 = <b>$43,200 a year</b> · In hours: $3,600 ÷ $100 = <b>36 agent hours</b></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">5</span>Where it breaks even</h2>
+    <p>Each call AVA resolves saves <b>$10</b> of agent time. AVA's bill is <b>$2,400</b> whatever share it resolves, because it charges for every call it answers. So AVA pays for itself once it resolves 240 calls, which is <b>20%</b> of calls.</p>
+    <svg class="art" id="artBe" viewBox="0 0 760 290" role="img" aria-label="Agent time saved rises from $0 to $12,000 as AVA resolves 0 to 100% of calls; AVA's $2,400 bill is flat; they cross at 20%"></svg>
+    <div class="math">$2,400 AVA bill ÷ $10 saved per call = <b>240 calls</b> · 240 ÷ 1,200 = <b>20% break-even</b></div>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">6</span>Check it in the calculator</h2>
+    <p>The button opens the calculator with exactly these inputs. You can then compare its numbers with the ones on this page.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Input</th><th class="n">Value</th><th>Input</th><th class="n">Value</th></tr></thead>
+      <tbody>
+        <tr><td>Inbound calls per month</td><td class="n">1,200</td><td>Go straight to an agent / resolved in IVR</td><td class="n">0% / 0%</td></tr>
+        <tr><td>Fully loaded cost per agent</td><td class="n">$6,000</td><td>AVA cost per call (billed on passed-on calls)</td><td class="n">$2.00</td></tr>
+        <tr><td>Paid hours per agent</td><td class="n">100 hr</td><td>IVR cost per call</td><td class="n">$0</td></tr>
+        <tr><td>Shrinkage</td><td class="n">20%</td><td>Platform and implementation</td><td class="n">$0</td></tr>
+        <tr><td>Working time on these calls</td><td class="n">100%</td><td>Target AVA containment</td><td class="n">50%</td></tr>
+        <tr><td>Occupancy</td><td class="n">75%</td><td>Implementation time / years / yearly increase</td><td class="n">0 / 1 / 0</td></tr>
+        <tr><td>Average handle time</td><td class="n">360 sec</td><td>Count savings in whole agents only</td><td class="n">Off</td></tr>
+      </tbody>
+    </table></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Result</th><th class="n">By hand</th><th class="n">Calculator</th><th></th></tr></thead>
+      <tbody>
+        <tr><td>Handle hours per agent</td><td class="n">60</td><td class="n">60.0</td><td class="ok">✓</td></tr>
+        <tr><td>Calls per agent per month</td><td class="n">600</td><td class="n">600</td><td class="ok">✓</td></tr>
+        <tr><td>Agent cost per call / per hour</td><td class="n">$10 / $100</td><td class="n">$10.00 / $100.00</td><td class="ok">✓</td></tr>
+        <tr><td>Agent hours automated</td><td class="n">60</td><td class="n">60</td><td class="ok">✓</td></tr>
+        <tr><td>Agents without AVA → with AVA</td><td class="n">2 → 1</td><td class="n">2.0 → 1.0</td><td class="ok">✓</td></tr>
+        <tr><td>Monthly cost without AVA</td><td class="n">$12,000</td><td class="n">$12,000</td><td class="ok">✓</td></tr>
+        <tr><td>Monthly cost with AVA</td><td class="n">$8,400</td><td class="n">$8,400</td><td class="ok">✓</td></tr>
+        <tr><td>Saved per month</td><td class="n">$3,600 (36 hr)</td><td class="n">$3,600 (36 hr)</td><td class="ok">✓</td></tr>
+        <tr><td>Saved in year 1</td><td class="n">$43,200</td><td class="n">$43,200</td><td class="ok">✓</td></tr>
+        <tr><td>Break-even containment</td><td class="n">20%</td><td class="n">20.0%</td><td class="ok">✓</td></tr>
+      </tbody>
+    </table></div>
+    <a class="cta" id="openCalc" href="index.html">Open this example in the calculator</a>
+    <p class="note">The example opens as an unsaved scenario and replaces the inputs on screen. Save your own scenario first if you want to come back to it.</p>
+  </section>
+
+  <section class="step">
+    <h2><span class="n">+</span>Why only call time counts</h2>
+    <p>Suppose these agents also answered email for part of the day. AVA would still take only the 60 hours of call work. The email work would stay, so the agent freed is worth 60 hours, not a full day's work. That is why the calculator counts only the hours AVA takes over, and why "working time on these calls" doesn't increase the savings.</p>
+  </section>
+</div>
+<script>
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const C = { agent: css("--agent"), ava: css("--ava"), accent: css("--accent"), shrink: css("--shrink"), wait: css("--wait"), line: css("--line"), ink: css("--ink"), muted: css("--muted"), bad: css("--bad"), good: css("--good") };
+
+  // Simple cartoon pieces
+  const person = (x, y, s, color, label, faded) => `
+    <g transform="translate(${x},${y}) scale(${s})" opacity="${faded ? 0.35 : 1}">
+      <circle cx="0" cy="-28" r="16" fill="${color}"/>
+      <path d="M-26 22 C-26 -4 26 -4 26 22 Z" fill="${color}"/>
+      <path d="M-17 -30 A17 17 0 0 1 17 -30" fill="none" stroke="${C.ink}" stroke-width="3"/>
+      <rect x="-21" y="-33" width="6" height="11" rx="3" fill="${C.ink}"/>
+      <path d="M-18 -22 Q-16 -12 -6 -12" fill="none" stroke="${C.ink}" stroke-width="2.5"/>
+      ${label ? `<text x="0" y="44" text-anchor="middle" font-size="15" font-weight="600">${label}</text>` : ""}
+    </g>`;
+  const robot = (x, y, s) => `
+    <g transform="translate(${x},${y}) scale(${s})">
+      <line x1="0" y1="-50" x2="0" y2="-40" stroke="${C.accent}" stroke-width="3"/><circle cx="0" cy="-52" r="4" fill="${C.accent}"/>
+      <rect x="-22" y="-40" width="44" height="32" rx="9" fill="${C.accent}"/>
+      <circle cx="-9" cy="-24" r="5" fill="#fff"/><circle cx="9" cy="-24" r="5" fill="#fff"/>
+      <rect x="-26" y="-4" width="52" height="26" rx="8" fill="${C.ava}"/>
+      <text x="0" y="44" text-anchor="middle" font-size="15" font-weight="600">AVA</text>
+    </g>`;
+  const phone = (x, y, color, faded) => `
+    <g transform="translate(${x},${y})" opacity="${faded ? 0.3 : 1}">
+      <rect x="-17" y="-17" width="34" height="34" rx="9" fill="${color}"/>
+      <path d="M-7 -8 c-2 0 -3 1 -3 3 c0 9 7 16 16 16 c2 0 3 -1 3 -3 v-3 l-5 -2 l-2 2 c-3 -1 -6 -4 -7 -7 l2 -2 l-2 -5 z" fill="#fff"/>
+    </g>`;
+  const hourBar = (x, y, w, segs) => {
+    let cx = x, out = "";
+    segs.forEach(([v, color, label]) => {
+      const sw = w * v / 100;
+      out += `<rect x="${cx}" y="${y}" width="${sw}" height="34" fill="${color}" ${color === C.wait ? `stroke="${C.line}"` : ""}/>`;
+      out += `<text x="${cx + sw / 2}" y="${y + 22}" text-anchor="middle" font-size="13" class="m" ${color === C.agent ? 'style="fill:#fff"' : ""}>${label}</text>`;
+      cx += sw;
+    });
+    return out + `<rect x="${x}" y="${y}" width="${w}" height="34" fill="none" stroke="${C.ink}" stroke-width="1.2" rx="2"/>`;
+  };
+  const set = (id, html) => document.getElementById(id).innerHTML = html;
+
+  // 1. Team: each agent's 100 paid hours
+  set("artTeam", [0, 1].map(i => {
+    const y = 30 + i * 95;
+    return person(50, y + 40, 0.95, C.agent, `Agent ${"AB"[i]}`) +
+      hourBar(130, y + 10, 560, [[20, C.shrink, "20 hr"], [20, C.wait, "20 hr"], [60, C.agent, "60 hr on calls"]]) +
+      `<text x="742" y="${y + 32}" text-anchor="end" font-size="13" class="m mu">100 hr</text>`;
+  }).join(""));
+
+  // 2. Calls: 12 icons of 100 calls
+  let calls = "";
+  [0, 1].forEach(i => {
+    const x0 = 150 + i * 330;
+    calls += person(x0 - 80, 92, 0.85, C.agent, `Agent ${"AB"[i]}`);
+    for (let k = 0; k < 6; k++) calls += phone(x0 + (k % 3) * 46, 62 + Math.floor(k / 3) * 46, C.agent);
+    calls += `<text x="${x0 + 46}" y="152" text-anchor="middle" font-size="14" class="m">600 calls · 60 hr</text>`;
+  });
+  set("artCalls", calls);
+
+  // 3. AVA takes 6 icons; agent B is freed
+  let ava = robot(80, 110, 1.05);
+  for (let k = 0; k < 6; k++) ava += phone(160 + (k % 3) * 46, 70 + Math.floor(k / 3) * 46, C.ava);
+  ava += `<text x="206" y="166" text-anchor="middle" font-size="14" class="m">600 resolved</text><text x="206" y="185" text-anchor="middle" font-size="14" class="m">= 60 hr automated</text>`;
+  ava += person(380, 110, 0.95, C.agent, "Agent A");
+  for (let k = 0; k < 6; k++) ava += phone(450 + (k % 3) * 46, 70 + Math.floor(k / 3) * 46, C.agent);
+  ava += `<text x="496" y="166" text-anchor="middle" font-size="14" class="m">600 passed on</text><text x="496" y="185" text-anchor="middle" font-size="14" class="m">= 60 hr</text>`;
+  ava += person(670, 110, 0.95, C.agent, "Agent B", true);
+  ava += `<g transform="translate(670,52)"><rect x="-38" y="-14" width="76" height="26" rx="13" fill="${C.good}"/><text x="0" y="4" text-anchor="middle" font-size="13" font-weight="600" style="fill:#fff">freed</text></g>`;
+  set("artAva", ava);
+
+  // 4. Bill: stacked bars
+  const sc = 0.014, base = 210; // px per dollar
+  const bar = (x, parts, label, total) => {
+    let y = base, out = "";
+    parts.forEach(([v, color, txt]) => {
+      const h = v * sc; y -= h;
+      out += `<rect x="${x}" y="${y}" width="150" height="${h}" fill="${color}" stroke="#fff" stroke-width="2"/>`;
+      out += `<text x="${x + 75}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="14" class="m" style="fill:#fff">${txt}</text>`;
+    });
+    return out + `<text x="${x + 75}" y="${y - 10}" text-anchor="middle" font-size="16" font-weight="600" class="m">${total}</text>` +
+      `<text x="${x + 75}" y="${base + 26}" text-anchor="middle" font-size="15" font-weight="600">${label}</text>`;
+  };
+  set("artBill", `<line x1="40" x2="720" y1="${base}" y2="${base}" stroke="${C.line}"/>` +
+    bar(110, [[6000, C.agent, "Agent A $6,000"], [6000, C.agent, "Agent B $6,000"]], "Without AVA", "$12,000") +
+    bar(360, [[6000, C.agent, "Agent A $6,000"], [2400, C.ava, "AVA $2,400"]], "With AVA", "$8,400") +
+    `<rect x="360" y="${base - 12000 * sc}" width="150" height="${3600 * sc}" fill="none" stroke="${C.good}" stroke-width="2" stroke-dasharray="6 5"/>` +
+    `<path d="M520 ${base - 12000 * sc + 4} h20 v${3600 * sc - 8} h-20" fill="none" stroke="${C.good}" stroke-width="2"/>` +
+    `<text x="552" y="${base - 12000 * sc + 3600 * sc / 2 - 4}" font-size="18" font-weight="700" style="fill:${C.good}">$3,600 saved</text>` +
+    `<text x="552" y="${base - 12000 * sc + 3600 * sc / 2 + 16}" font-size="14" class="mu">every month</text>`);
+
+  // 5. Break-even chart: savings line vs flat AVA bill
+  const X = p => 80 + p * 6.2, Y = d => 240 - d * 0.017;
+  let be = `<line x1="${X(0)}" x2="${X(100)}" y1="${Y(0)}" y2="${Y(0)}" stroke="${C.line}"/>`;
+  [0, 20, 40, 60, 80, 100].forEach(p => be += `<text x="${X(p)}" y="${Y(0) + 20}" text-anchor="middle" font-size="12" class="m mu">${p}%</text>`);
+  [0, 4000, 8000, 12000].forEach(d => be += `<text x="${X(0) - 8}" y="${Y(d) + 4}" text-anchor="end" font-size="12" class="m mu">$${d / 1000}K</text><line x1="${X(0)}" x2="${X(100)}" y1="${Y(d)}" y2="${Y(d)}" stroke="${C.line}" stroke-dasharray="${d ? "2 4" : ""}"/>`);
+  be += `<polygon points="${X(20)},${Y(2400)} ${X(100)},${Y(12000)} ${X(100)},${Y(2400)}" fill="${C.good}" opacity="0.12"/>`;
+  be += `<line x1="${X(0)}" x2="${X(100)}" y1="${Y(2400)}" y2="${Y(2400)}" stroke="${C.ava}" stroke-width="3"/>`;
+  be += `<line x1="${X(0)}" x2="${X(100)}" y1="${Y(0)}" y2="${Y(12000)}" stroke="${C.agent}" stroke-width="3"/>`;
+  be += `<line x1="${X(20)}" x2="${X(20)}" y1="${Y(0)}" y2="${Y(2400) - 30}" stroke="${C.ink}" stroke-dasharray="4 3"/>`;
+  be += `<circle cx="${X(20)}" cy="${Y(2400)}" r="6" fill="${C.ink}"/>`;
+  be += `<text x="${X(20) - 8}" y="${Y(2400) - 36}" text-anchor="end" font-size="14" font-weight="700">Break-even: 20%</text>`;
+  be += `<text x="${X(100) - 4}" y="${Y(2400) + 20}" text-anchor="end" font-size="13" style="fill:${C.accent}">AVA bill: $2,400 (flat)</text>`;
+  be += `<text x="${X(52)}" y="${Y(8200)}" text-anchor="end" font-size="13" style="fill:${C.ink}">Agent time saved: $10 per resolved call</text>`;
+  be += `<circle cx="${X(50)}" cy="${Y(6000)}" r="6" fill="${C.accent}"/><text x="${X(50) + 10}" y="${Y(6000) + 20}" font-size="13" class="m">50%: $6,000 − $2,400 = $3,600</text>`;
+  be += `<text x="${X(50)}" y="${Y(0) + 40}" text-anchor="middle" font-size="12.5" class="mu">Share of calls AVA resolves</text>`;
+  set("artBe", be);
+
+  // 6. Link that opens the calculator with this example's inputs (same format as "Copy link")
+  const payload = { n: "Worked example: 2 agents, 1 task", i: {
+    mode: "calls", target: 50, calls: 1200, agents: 2, cost: 6000, occ: 75, aht: 360, hours: 100, shrink: 20, share: 100,
+    direct: 0, ivr: 0, ivrCost: 0, avaCost: 2, platform: 0, impl: 0, months: 1, years: 1, growth: 0, implMonths: 0,
+    whole: false, chargeEsc: true, custCompany: "Worked example" } };
+  document.getElementById("openCalc").href = "index.html#s=" + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+})();
+</script>
+</body>
+</html>
