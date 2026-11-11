@@ -299,7 +299,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
           <div class="prefix"><span>$</span><input type="number" id="cost" min="0" step="100"></div>
         </div>
         <div class="field">
-          <label for="occ">Agent occupancy rate<small>Share of logged-in time spent on calls.</small></label>
+          <label for="occ">Agent occupancy rate<small>Share of logged-in time on these calls spent handling them. Industry norm 75–85% (SQM); above about 85–90% for long risks burnout.</small></label>
           <div class="suffix"><span>%</span><input type="number" id="occ" min="1" max="100" step="1"></div>
         </div>
         <div class="field">
@@ -311,7 +311,7 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
           <div class="suffix"><span>hr</span><input type="number" id="hours" min="1" step="1"></div>
         </div>
         <div class="field">
-          <label for="shrink">Shrinkage<small>Paid time not available for any work: breaks, training, meetings, coaching, time off.</small></label>
+          <label for="shrink">Shrinkage<small>Paid time not available for any work: breaks, training, meetings, coaching, time off. Industry norm 30–35% (Call Centre Helper, NiCE, Five9).</small></label>
           <div class="suffix"><span>%</span><input type="number" id="shrink" min="0" max="90" step="1"></div>
         </div>
         <div class="field">
@@ -504,22 +504,27 @@ button.primary:hover { color: var(--surface); filter: brightness(1.08); }
 (function () {
   const DEFAULTS = {
     mode: "calls", agents: 100, calls: 96000,
-    cost: 7000, occ: 80, aht: 600, hours: 173, shrink: 25, share: 100, whole: true,
+    cost: 7000, occ: 80, aht: 600, hours: 173, shrink: 30, share: 100, whole: true,
     direct: 10, ivr: 20,
     ivrCost: 0.5, avaCost: 1.2, chargeEsc: true, platform: 0, impl: 0, months: 36,
     target: 50, years: 5, growth: 5, implMonths: 3, openYears: true, openCost: true
   };
-  const KEY = "ava-containment-break-even-v8", OLD_KEY = "ava-containment-break-even-v7";
+  const KEY = "ava-containment-break-even-v9", V8_KEY = "ava-containment-break-even-v8", OLD_KEY = "ava-containment-break-even-v7";
   const FIELDS = ["agents", "calls", "cost", "occ", "aht", "hours", "shrink", "share", "direct", "ivr", "ivrCost", "avaCost", "platform", "impl", "months", "years", "growth", "implMonths"];
   const CHECKS = ["whole", "chargeEsc"];
   let S = load();
 
   function load() {
     try { const o = JSON.parse(localStorage.getItem(KEY)); if (o && typeof o === "object") return Object.assign({}, DEFAULTS, o); } catch (e) {}
+    // v8 saved values: keep them, but move shrinkage to the new 30% default (Chad, 2026-11-11)
+    try {
+      const o = JSON.parse(localStorage.getItem(V8_KEY));
+      if (o && typeof o === "object") return Object.assign({}, DEFAULTS, o, { shrink: DEFAULTS.shrink });
+    } catch (e) {}
     // v7 had one "% of agent time on these calls" field; carry it over as shrinkage so saved results don't change
     try {
       const o = JSON.parse(localStorage.getItem(OLD_KEY));
-      if (o && typeof o === "object") { const s = Object.assign({}, DEFAULTS, o); s.shrink = Math.max(0, 100 - (o.share ?? 75)); s.share = 100; return s; }
+      if (o && typeof o === "object") { const s = Object.assign({}, DEFAULTS, o); s.shrink = DEFAULTS.shrink; s.share = 100; return s; }
     } catch (e) {}
     return Object.assign({}, DEFAULTS);
   }

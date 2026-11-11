@@ -25,7 +25,7 @@ inputs = [
  ("Agent occupancy rate", 0.80, "0.0%", "occ"),
  ("Average call time (sec)", 600, "#,##0", "aht"),
  ("Paid hours per agent per month (one FTE)", 173, "#,##0.0", "hours"),
- ("Shrinkage (breaks, training, meetings, time off; % of paid time)", 0.25, "0.0%", "shrink"),
+ ("Shrinkage (breaks, training, meetings, time off; % of paid time)", 0.30, "0.0%", "shrink"),
  ("% of working time on these calls (rest is other tasks AVA does not remove)", 1.00, "0.0%", "share"),
  ("% of calls that go directly to an agent", 0.10, "0.0%", "direct"),
  ("% of calls contained in IVR", 0.20, "0.0%", "ivr"),

@@ -38,3 +38,11 @@ The comparison point is the same flow with no AVA, where every call that leaves 
 - `.cursor/rules/ava-break-even.mdc` gives Cursor the model, formulas and conventions for this project.
 
 Values on the page are examples until replaced with real figures.
+
+## Benchmark sources for default inputs
+
+Defaults are examples. Replace them with the customer's figures when available.
+
+- **Shrinkage, default 30%.** [Call Centre Helper](https://www.callcentrehelper.com/industry-standards-metrics-125584.htm): "The Call Centre Industry Standard Metric for Shrinkage is 30%". Its [shrinkage guide](https://www.callcentrehelper.com/how-to-calculate-contact-centre-shrinkage-90353.htm) says 30–35%. [NiCE](https://www.nice.com/glossary/shrinkage): typically 25–40%, with averages around 30–35%. [Five9](https://www.five9.com/blog/understanding-and-managing-shrinkage-contact-centers): industry average of about 30–35%.
+- **Occupancy, default 80%.** [SQM Group](https://www.sqmgroup.com/resources/library/blog/industry-standards-top-call-center-kpis): the industry standard is 75–85%, and above 85% is not sustainable for long periods. [Call Centre Helper](https://www.callcentrehelper.com/industry-standards-metrics-125584.htm): 83.3% is its standard for maximum occupancy. [ICMI](https://www.icmi.com/resources/2023/agent-efficiency-between-calls): agents burn out when occupancy is above the low 90s for long periods. [TechTarget](https://www.techtarget.com/enterprise-software/answer/How-to-calculate-call-center-utilization-rates): burnout is likely when occupancy is consistently above 88–92%.
+
